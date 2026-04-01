@@ -1,1 +1,1 @@
-# Mind-Meals
+# MindMeals: "Smart Meals, Healthy Minds"
