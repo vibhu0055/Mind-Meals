@@ -8,7 +8,7 @@ import { generateToken } from "../utils/jwt.js";
 // =========================
 export const createTeacher = async (req, res) => {
   try {
-    const school_id = req.school.school_id; // from JWT middleware
+    const school_id = req.user.school_id; // from JWT middleware
 
     const { name, email, password, phone } = req.body;
 
