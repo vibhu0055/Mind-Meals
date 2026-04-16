@@ -3,6 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectdb } from './database/connectdb.js';
 import teacherRoutes from './routes/teacherRoutes.js';
+import studentRoutes from "./routes/studentRoutes.js";
+import healthRoutes from './routes/healthRoutes.js';
+import classRoutes from './routes/classRoutes.js';
 
 
 // NEW: school auth routes
@@ -23,9 +26,11 @@ app.use(express.json());
 // ROUTES
 // =========================
 
-// School auth (register/login)
 app.use('/api/school', schoolAuthRoutes);
 app.use('/api/teacher', teacherRoutes);
+app.use("/api/student", studentRoutes);
+app.use('/api/health', healthRoutes);
+app.use("/api/class", classRoutes);
 
 // =========================
 // HEALTH CHECK
