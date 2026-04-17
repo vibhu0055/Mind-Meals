@@ -48,6 +48,43 @@ export const createTeacher = async (req, res) => {
   }
 };
 
+// =========================
+// DELETE TEACHER (SCHOOL ONLY)
+// =========================
+export const deleteTeacher = async (req, res) => {
+  try {
+    const { id } = req.params; // teacher id
+    const { school_id } = req.user;
+
+    // 1. Check teacher exists in same school
+    const teacherCheck = await pool.query(
+      `SELECT * FROM users 
+       WHERE id = $1 AND school_id = $2 AND role = 'teacher'`,
+      [id, school_id]
+    );
+
+    if (teacherCheck.rows.length === 0) {
+      return res.status(404).json({
+        message: "Teacher not found"
+      });
+    }
+
+    // 2. Delete teacher
+    await pool.query(
+      `DELETE FROM users WHERE id = $1`,
+      [id]
+    );
+
+    return res.status(200).json({
+      message: "Teacher deleted successfully"
+    });
+
+  } catch (err) {
+    console.error("Delete Teacher Error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 // =========================
 // TEACHER LOGIN
@@ -101,6 +138,54 @@ export const loginTeacher = async (req, res) => {
 
   } catch (err) {
     console.error("Teacher Login Error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// =========================
+// UPDATE MEAL PERMISSION
+// =========================
+export const updateMealPermission = async (req, res) => {
+  try {
+    const { id } = req.params; // teacher id
+    const { can_manage_meals } = req.body;
+    const { school_id } = req.user;
+
+    if (typeof can_manage_meals !== "boolean") {
+      return res.status(400).json({
+        message: "can_manage_meals must be true or false"
+      });
+    }
+
+    // 1. Check teacher exists in same school
+    const teacherCheck = await pool.query(
+      `SELECT * FROM users 
+       WHERE id = $1 AND school_id = $2 AND role = 'teacher'`,
+      [id, school_id]
+    );
+
+    if (teacherCheck.rows.length === 0) {
+      return res.status(404).json({
+        message: "Teacher not found"
+      });
+    }
+
+    // 2. Update permission
+    const result = await pool.query(
+      `UPDATE users
+       SET can_manage_meals = $1
+       WHERE id = $2
+       RETURNING id, name, can_manage_meals`,
+      [can_manage_meals, id]
+    );
+
+    return res.status(200).json({
+      message: "Permission updated successfully",
+      teacher: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error("Update Permission Error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };

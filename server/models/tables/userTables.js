@@ -23,6 +23,7 @@ export const userTables = async () => {
         name VARCHAR(200) NOT NULL,
         email VARCHAR(150) NOT NULL,
         password_hash VARCHAR(255),
+        can_manage_meals BOOLEAN DEFAULT FALSE,
         role VARCHAR(20) CHECK (role IN ('teacher','parent')) NOT NULL,
         phone VARCHAR(20),
         created_at TIMESTAMP DEFAULT NOW(),
