@@ -144,7 +144,7 @@ export const loginTeacher = async (req, res) => {
 
 // =========================
 // UPDATE MEAL PERMISSION
-// =========================
+// ========================= 
 export const updateMealPermission = async (req, res) => {
   try {
     const { id } = req.params; // teacher id

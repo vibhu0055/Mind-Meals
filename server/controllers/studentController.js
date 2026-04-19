@@ -1,4 +1,8 @@
 import pool from "../database/database.js";
+import {
+  checkClassBelongsToSchool,
+  checkTeacherAssignment
+} from "../services/authService.js";
 
 // =========================
 // ADD STUDENT (TEACHER ONLY)
@@ -16,32 +20,23 @@ export const addStudent = async (req, res) => {
       });
     }
 
-    // 2. Check class exists AND belongs to same school
-    const classCheck = await pool.query(
-      `SELECT * FROM classes 
-       WHERE id = $1 AND school_id = $2`,
-      [class_id, school_id]
-    );
+    // 2. Check class belongs to school
+    const classExists = await checkClassBelongsToSchool(class_id, school_id);
 
-    if (classCheck.rows.length === 0) {
+    if (!classExists) {
       return res.status(404).json({
         message: "Class not found in your school"
       });
     }
 
-    // 3. Check teacher is assigned to this class (🔥 CRITICAL)
-    const assignmentCheck = await pool.query(
-      `SELECT * FROM teacher_classes
-       WHERE teacher_id = $1 AND class_id = $2`,
-      [teacher_id, class_id]
-    );
+    // 3. Check teacher assignment
+    const isAssigned = await checkTeacherAssignment(teacher_id, class_id);
 
-    if (assignmentCheck.rows.length === 0) {
+    if (!isAssigned) {
       return res.status(403).json({
         message: "You are not assigned to this class"
       });
     }
-
     // 4. Insert student
     const result = await pool.query(
       `INSERT INTO students (school_id, class_id, name, age, gender)
@@ -60,9 +55,9 @@ export const addStudent = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-  // ----------------------------------------
-  //  GET ALL STUDENTS (for teacher dashboard)
-  // -----------------------------------------
+// ----------------------------------------
+//  GET ALL STUDENTS (for teacher dashboard)
+// -----------------------------------------
 
 export const getStudents = async (req, res) => {
   try {
@@ -87,11 +82,11 @@ export const getStudents = async (req, res) => {
   }
 };
 
-  // ----------------------------------------
-  //  GET Students by CLass
-  // -----------------------------------------
+// ----------------------------------------
+//  GET Students by CLass
+// -----------------------------------------
 
-  export const getStudentsByClass = async (req, res) => {
+export const getStudentsByClass = async (req, res) => {
   try {
     const { school_id } = req.user;
     const { class_id } = req.params;
@@ -113,9 +108,9 @@ export const getStudents = async (req, res) => {
   }
 };
 
-  // ----------------------------------------
-  //  GET Single Student
-  // -----------------------------------------
+// ----------------------------------------
+//  GET Single Student
+// -----------------------------------------
 
 export const getStudentById = async (req, res) => {
   try {

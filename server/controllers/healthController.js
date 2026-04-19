@@ -1,14 +1,10 @@
 import pool from '../database/database.js';
+import { calculateBMI, getBMICategory } from "../services/healthService.js";
+import {
+  checkStudentBelongsToSchool,
+  checkTeacherAssignment
+} from "../services/authService.js";
 
-// =========================
-// BMI CATEGORY HELPER
-// =========================
-const getBMICategory = (bmi) => {
-  if (bmi < 18.5) return 'Underweight';
-  if (bmi < 25.0) return 'Normal';
-  if (bmi < 30.0) return 'Overweight';
-  return 'Obese';
-};
 
 // =========================
 // ADD HEALTH RECORD
@@ -26,25 +22,15 @@ export const addHealthRecord = async (req, res) => {
 
   try {
     // 1. Check student
-    const studentCheck = await pool.query(
-      `SELECT id, class_id, school_id FROM students WHERE id = $1`,
-      [student_id]
-    );
+    const student = await checkStudentBelongsToSchool(student_id, school_id);
 
-    if (studentCheck.rows.length === 0) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-
-    const student = studentCheck.rows[0];
-
-    // 2. School safety
-    if (student.school_id !== school_id) {
-      return res.status(403).json({
-        message: 'You cannot access this student'
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found or not in your school"
       });
     }
 
-    // 3. Teacher-class validation (🔥 IMPORTANT)
+    // 2. Teacher-class validation (🔥 IMPORTANT)
     const assignmentCheck = await pool.query(
       `SELECT * FROM teacher_classes 
        WHERE teacher_id = $1 AND class_id = $2`,
@@ -57,12 +43,11 @@ export const addHealthRecord = async (req, res) => {
       });
     }
 
-    // 4. Calculate BMI
-    const heightM = height_cm / 100;
-    const bmi = parseFloat((weight_kg / (heightM * heightM)).toFixed(2));
+    // 3. Calculate BMI
+    const bmi = calculateBMI(height_cm, weight_kg);
     const bmi_category = getBMICategory(bmi);
 
-    // 5. Insert
+    // 4. Insert
     const result = await pool.query(
       `INSERT INTO health_records
        (student_id, teacher_id, height_cm, weight_kg, muac_cm, bmi, bmi_category)
