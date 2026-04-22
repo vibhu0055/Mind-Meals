@@ -6,9 +6,11 @@ import teacherRoutes from './routes/teacherRoutes.js';
 import studentRoutes from "./routes/studentRoutes.js";
 import healthRoutes from './routes/healthRoutes.js';
 import classRoutes from './routes/classRoutes.js';
+import ingredientRoutes from './routes/ingredientRoutes.js';
+import classGroupRoutes from './routes/classgroupRoutes.js';
+import mealRoutes from './routes/mealRoutes.js';
 
-
-// NEW: school auth routes
+// school auth routes
 import schoolAuthRoutes from './routes/schoolAuth.routes.js';
 
 dotenv.config();
@@ -31,6 +33,9 @@ app.use('/api/teacher', teacherRoutes);
 app.use("/api/student", studentRoutes);
 app.use('/api/health', healthRoutes);
 app.use("/api/class", classRoutes);
+app.use('/api/ingredient', ingredientRoutes);
+app.use('/api/class-group', classGroupRoutes);
+app.use('/api/meal', mealRoutes);
 
 // =========================
 // HEALTH CHECK
