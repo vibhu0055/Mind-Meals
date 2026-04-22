@@ -3,150 +3,97 @@ import pool from '../../database/database.js';
 export const userTables = async () => {
   try {
 
-    // 1. ADMIN
+    // 1. SCHOOLS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS admin (
-        school_id     VARCHAR(100) PRIMARY KEY,
-        name          VARCHAR(200) NOT NULL,
-        email         VARCHAR(100) UNIQUE NOT NULL,
-        username      VARCHAR(100) UNIQUE NOT NULL,
+      CREATE TABLE IF NOT EXISTS schools (
+        id SERIAL PRIMARY KEY,
+        school_id INT UNIQUE NOT NULL,
+        name VARCHAR(200) NOT NULL,
+        email VARCHAR(150) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        created_at    TIMESTAMP DEFAULT NOW(),
-        updated_at    TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
-    // 2. PRINCIPAL
+    // 2. USERS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS principal (
-        id            SERIAL PRIMARY KEY,
-        school_id     VARCHAR(100) NOT NULL REFERENCES admin(school_id) ON DELETE CASCADE,
-        name          VARCHAR(200) NOT NULL,
-        email         VARCHAR(100) UNIQUE NOT NULL,
-        username      VARCHAR(100) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at    TIMESTAMP DEFAULT NOW(),
-        updated_at    TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    // 3. TEACHER
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS teacher (
-        id               SERIAL PRIMARY KEY,
-        school_id        VARCHAR(100) NOT NULL REFERENCES admin(school_id) ON DELETE CASCADE,
-        name             VARCHAR(100) NOT NULL,
-        email            VARCHAR(100) UNIQUE NOT NULL,
-        username         VARCHAR(100) UNIQUE NOT NULL,
-        password_hash    VARCHAR(255) NOT NULL,
-        classes_assigned VARCHAR(50),
-        created_at       TIMESTAMP DEFAULT NOW(),
-        updated_at       TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    // 4. STUDENT
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS student (
-        id         SERIAL PRIMARY KEY,
-        school_id  VARCHAR(100) NOT NULL REFERENCES admin(school_id) ON DELETE CASCADE,
-        teacher_id INT REFERENCES teacher(id) ON DELETE SET NULL,
-        name       VARCHAR(100) NOT NULL,
-        age        INT NOT NULL,
-        class      VARCHAR(50) NOT NULL,
-        gender     VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        name VARCHAR(200) NOT NULL,
+        email VARCHAR(150) NOT NULL,
+        password_hash VARCHAR(255),
+        can_manage_meals BOOLEAN DEFAULT FALSE,
+        role VARCHAR(20) CHECK (role IN ('teacher','parent')) NOT NULL,
+        phone VARCHAR(20),
         created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
+        UNIQUE (school_id, email)
       );
     `);
 
-    // 5. PARENT
+    // 3. CLASSES
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS parent (
-        id            SERIAL PRIMARY KEY,
-        student_id    INT NOT NULL REFERENCES student(id) ON DELETE CASCADE,
-        name          VARCHAR(200) NOT NULL,
-        email         VARCHAR(100) UNIQUE NOT NULL,
-        username      VARCHAR(100) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        phone         VARCHAR(20),
-        created_at    TIMESTAMP DEFAULT NOW(),
-        updated_at    TIMESTAMP DEFAULT NOW()
+      CREATE TABLE IF NOT EXISTS classes (
+        id SERIAL PRIMARY KEY,
+        school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        name VARCHAR(50) NOT NULL,
+        section VARCHAR(10),
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE (school_id, name, section)
       );
     `);
 
-    // 6. HEALTH RECORD
+    // 4. TEACHER - CLASS MAP
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS health_record (
-        id               SERIAL PRIMARY KEY,
-        student_id       INT NOT NULL REFERENCES student(id) ON DELETE CASCADE,
-        teacher_id       INT NOT NULL REFERENCES teacher(id) ON DELETE SET NULL,
-        height_cm        DECIMAL(5,2) NOT NULL,
-        weight_kg        DECIMAL(5,2) NOT NULL,
-        muac_cm          DECIMAL(5,2),
-        bmi              DECIMAL(5,2),
-        bmi_category     VARCHAR(50),
-        recorded_at      DATE NOT NULL DEFAULT CURRENT_DATE,
-        created_at       TIMESTAMP DEFAULT NOW()
+      CREATE TABLE IF NOT EXISTS teacher_classes (
+        id SERIAL PRIMARY KEY,
+        teacher_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        class_id INT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        UNIQUE (teacher_id, class_id)
       );
     `);
 
-    // 7. INGREDIENT
+    // 5. STUDENTS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS ingredient (
-        id            SERIAL PRIMARY KEY,
-        name          VARCHAR(150) UNIQUE NOT NULL,
-        calories_kcal DECIMAL(7,2) DEFAULT 0,
-        protein_g     DECIMAL(7,2) DEFAULT 0,
-        carbs_g       DECIMAL(7,2) DEFAULT 0,
-        fat_g         DECIMAL(7,2) DEFAULT 0,
-        fiber_g       DECIMAL(7,2) DEFAULT 0,
-        iron_mg       DECIMAL(7,2) DEFAULT 0,
-        calcium_mg    DECIMAL(7,2) DEFAULT 0,
-        vitamin_a_mcg DECIMAL(7,2) DEFAULT 0,
-        vitamin_c_mg  DECIMAL(7,2) DEFAULT 0,
-        created_at    TIMESTAMP DEFAULT NOW(),
-        updated_at    TIMESTAMP DEFAULT NOW()
+      CREATE TABLE IF NOT EXISTS students (
+        id SERIAL PRIMARY KEY,
+        school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        class_id INT REFERENCES classes(id) ON DELETE SET NULL,
+        name VARCHAR(150) NOT NULL,
+        age INT NOT NULL,
+        gender VARCHAR(10),
+        created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
-    // 8. MEAL
+    // 6. parent_students mapping
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS meal (
-        id          SERIAL PRIMARY KEY,
-        school_id   VARCHAR(100) NOT NULL REFERENCES admin(school_id) ON DELETE CASCADE,
-        name        VARCHAR(150) NOT NULL,
-        meal_type   VARCHAR(50) CHECK (meal_type IN ('breakfast', 'lunch', 'snack', 'dinner')),
-        served_date DATE NOT NULL,
-        created_at  TIMESTAMP DEFAULT NOW(),
-        updated_at  TIMESTAMP DEFAULT NOW()
+      CREATE TABLE IF NOT EXISTS parent_students (
+        id SERIAL PRIMARY KEY,
+        parent_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        student_id INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        UNIQUE (parent_id, student_id)
       );
     `);
 
-    // 9. MEAL_INGREDIENT (junction table)
+    // 7. HEALTH RECORDS
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS meal_ingredient (
-        id            SERIAL PRIMARY KEY,
-        meal_id       INT NOT NULL REFERENCES meal(id) ON DELETE CASCADE,
-        ingredient_id INT NOT NULL REFERENCES ingredient(id) ON DELETE CASCADE,
-        quantity_g    DECIMAL(7,2) NOT NULL,
-        UNIQUE (meal_id, ingredient_id)
+      CREATE TABLE IF NOT EXISTS health_records (
+        id SERIAL PRIMARY KEY,
+        student_id INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        teacher_id INT REFERENCES users(id) ON DELETE SET NULL,
+        height_cm DECIMAL(5,2),
+        weight_kg DECIMAL(5,2),
+        muac_cm DECIMAL(5,2),
+        bmi DECIMAL(5,2),
+        bmi_category VARCHAR(50),
+        recorded_at DATE DEFAULT CURRENT_DATE,
+        created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
-    // 10. RECOMMENDATION
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS recommendation (
-        id               SERIAL PRIMARY KEY,
-        student_id       INT NOT NULL REFERENCES student(id) ON DELETE CASCADE,
-        health_record_id INT REFERENCES health_record(id) ON DELETE SET NULL,
-        category         VARCHAR(100),
-        message          TEXT NOT NULL,
-        generated_at     TIMESTAMP DEFAULT NOW()
-      );
-    `);
 
-    console.log('✅ All tables are ready');
+    console.log('✅ All tables created successfully');
 
   } catch (err) {
     console.error('❌ Error creating tables:', err);
