@@ -136,3 +136,96 @@ export const getStudentById = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+// =========================
+// UPDATE STUDENT (TEACHER ONLY)
+// =========================
+export const updateStudent = async (req, res) => {
+  try {
+    const { user_id: teacher_id, school_id } = req.user;
+    const { id } = req.params;
+    const { name, age, gender, class_id } = req.body;
+
+    // 1. Check student exists in school
+    const studentCheck = await pool.query(
+      `SELECT * FROM students WHERE id = $1 AND school_id = $2`,
+      [id, school_id]
+    );
+
+    if (studentCheck.rows.length === 0) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const student = studentCheck.rows[0];
+
+    // 2. If class_id is being updated → validate it
+    if (class_id) {
+      const classExists = await checkClassBelongsToSchool(class_id, school_id);
+
+      if (!classExists) {
+        return res.status(404).json({
+          message: "Class not found in your school"
+        });
+      }
+
+      const isAssigned = await checkTeacherAssignment(teacher_id, class_id);
+
+      if (!isAssigned) {
+        return res.status(403).json({
+          message: "You are not assigned to this class"
+        });
+      }
+    }
+
+    // 3. Update (partial update)
+    const result = await pool.query(
+      `UPDATE students
+       SET name = COALESCE($1, name),
+           age = COALESCE($2, age),
+           gender = COALESCE($3, gender),
+           class_id = COALESCE($4, class_id)
+       WHERE id = $5 AND school_id = $6
+       RETURNING *`,
+      [name, age, gender, class_id, id, school_id]
+    );
+
+    return res.status(200).json({
+      message: "Student updated successfully",
+      student: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error("Update Student Error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+// =========================
+// DELETE STUDENT (TEACHER ONLY)
+// =========================
+export const deleteStudent = async (req, res) => {
+  try {
+    const { school_id } = req.user;
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `DELETE FROM students
+       WHERE id = $1 AND school_id = $2
+       RETURNING *`,
+      [id, school_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    return res.status(200).json({
+      message: "Student deleted successfully"
+    });
+
+  } catch (err) {
+    console.error("Delete Student Error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};

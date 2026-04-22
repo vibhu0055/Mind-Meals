@@ -4,13 +4,20 @@ import {
   addStudent,
   getStudents,
   getStudentsByClass,
-  getStudentById
+  getStudentById,
+  updateStudent,
+  deleteStudent
 } from "../controllers/studentController.js";
 
 const router = express.Router();
 
 // CREATE
 router.post("/add", protect(['teacher']), addStudent);
+
+//Update
+router.patch('/:id', protect(['teacher']), updateStudent);
+//Delete
+router.delete('/:id', protect(['teacher']), deleteStudent);
 
 // READ
 router.get("/", protect(['teacher', 'school']), getStudents);

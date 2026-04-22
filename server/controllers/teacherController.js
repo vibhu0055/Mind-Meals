@@ -189,3 +189,57 @@ export const updateMealPermission = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+// =========================
+// GET ALL TEACHERS (SCHOOL ONLY)
+// =========================
+export const getTeachers = async (req, res) => {
+  try {
+    const { school_id } = req.user;
+
+    const result = await pool.query(
+      `SELECT id, name, email, phone, can_manage_meals
+       FROM users
+       WHERE school_id = $1 AND role = 'teacher'
+       ORDER BY id DESC`,
+      [school_id]
+    );
+
+    return res.status(200).json({
+      teachers: result.rows
+    });
+
+  } catch (err) {
+    console.error("Get Teachers Error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+// =========================
+// GET TEACHER PROFILE (SELF)
+// =========================
+export const getTeacherProfile = async (req, res) => {
+  try {
+    const { user_id } = req.user;
+
+    const result = await pool.query(
+      `SELECT id, name, email, phone, school_id, can_manage_meals
+       FROM users
+       WHERE id = $1 AND role = 'teacher'`,
+      [user_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+
+    return res.status(200).json({
+      teacher: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error("Get Profile Error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};

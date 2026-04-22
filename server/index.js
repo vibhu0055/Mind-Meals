@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import authRoutes from './routes/authRoutes.js';
 import { connectdb } from './database/connectdb.js';
 import teacherRoutes from './routes/teacherRoutes.js';
 import studentRoutes from "./routes/studentRoutes.js";
@@ -15,19 +16,29 @@ import schoolAuthRoutes from './routes/schoolAuth.routes.js';
 
 dotenv.config();
 
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set');
+  process.exit(1);
+}
+
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // =========================
 // MIDDLEWARE
 // =========================
-app.use(cors());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:3000', 'http://localhost:5173'],
+  credentials: true,
+}));
 app.use(express.json());
 
 // =========================
 // ROUTES
 // =========================
 
+app.use('/api/auth', authRoutes);
 app.use('/api/school', schoolAuthRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use("/api/student", studentRoutes);
@@ -38,7 +49,7 @@ app.use('/api/class-group', classGroupRoutes);
 app.use('/api/meal', mealRoutes);
 
 // =========================
-// HEALTH CHECK
+// HEALTH CHECK 
 // =========================
 app.get('/', (req, res) => {
   res.send('MealMind API running ✅');
@@ -60,5 +71,6 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
 
 startServer();

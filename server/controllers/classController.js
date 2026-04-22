@@ -57,6 +57,76 @@ export const getClasses = async (req, res) => {
 };
 
 // =========================
+// UPDATE CLASS (SCHOOL ONLY)
+// =========================
+export const updateClass = async (req, res) => {
+  try {
+    const { school_id } = req.user;
+    const { id } = req.params;
+    const { name, section } = req.body;
+
+    // 1. Check class exists in school
+    const classCheck = await pool.query(
+      `SELECT * FROM classes WHERE id = $1 AND school_id = $2`,
+      [id, school_id]
+    );
+
+    if (classCheck.rows.length === 0) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    // 2. Update (partial)
+    const result = await pool.query(
+      `UPDATE classes
+       SET name = COALESCE($1, name),
+           section = COALESCE($2, section)
+       WHERE id = $3 AND school_id = $4
+       RETURNING *`,
+      [name, section, id, school_id]
+    );
+
+    return res.status(200).json({
+      message: "Class updated successfully",
+      class: result.rows[0]
+    });
+
+  } catch (err) {
+    console.error("Update Class Error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+// =========================
+// DELETE CLASS (SCHOOL ONLY)
+// =========================
+export const deleteClass = async (req, res) => {
+  try {
+    const { school_id } = req.user;
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `DELETE FROM classes
+       WHERE id = $1 AND school_id = $2
+       RETURNING *`,
+      [id, school_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    return res.status(200).json({
+      message: "Class deleted successfully"
+    });
+
+  } catch (err) {
+    console.error("Delete Class Error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// =========================
 // ASSIGN TEACHER TO CLASS
 // =========================
 export const assignTeacherToClass = async (req, res) => {

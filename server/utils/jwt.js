@@ -1,11 +1,9 @@
-import jwt from "jsonwebtoken";
+import jwt from 'jsonwebtoken';
 
-const SECRET = process.env.JWT_SECRET || "meal_mind_secret_key";
-
-export const generateToken = (payload) => {
-  return jwt.sign(payload, SECRET, { expiresIn: "7d" });
+const getSecret = () => {
+  if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is not set');
+  return process.env.JWT_SECRET;
 };
 
-export const verifyToken = (token) => {
-  return jwt.verify(token, SECRET);
-};
+export const generateToken = (payload) => jwt.sign(payload, getSecret(), { expiresIn: '7d' });
+export const verifyToken = (token) => jwt.verify(token, getSecret());
