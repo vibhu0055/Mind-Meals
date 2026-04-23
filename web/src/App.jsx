@@ -1,98 +1,49 @@
 // App.jsx
-import React, { useState } from "react";
+// 
+import { useState } from "react";
 
-function App() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("admin"); // default role
+export default function MealMindLogin(){
+  const [role,setRole] = useState("Principal");
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    alert(`Logging in as ${role} with email: ${email}`);
-    console.log({ email, password, role });
+  const handleLogin = () => {
+    alert(`${role} login successful`);
   };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-blue-400 to-purple-500">
-      <div className="bg-white rounded-2xl shadow-xl p-10 w-full max-w-md">
-        
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <div className="bg-blue-500 text-white text-3xl font-bold rounded-full w-16 h-16 flex items-center justify-center">
-            LOGO
-          </div>
+    <div className="min-h-screen w-full bg-gradient-to-r from-emerald-700 to-teal-900 flex items-center justify-center p-6">
+      <div className="w-full max-w-xl bg-gray-100 rounded-3xl shadow-xl px-10 py-12">
+        <div className="text-center mb-10">
+          <h1 className="text-5xl font-bold text-teal-700">MealMind</h1>
+          <p className="text-slate-600 mt-3 text-xl">School Nutrition Monitoring System</p>
         </div>
 
-        <h2 className="text-3xl font-semibold text-center text-gray-800 mb-8">
-          Welcome Back
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Role Dropdown */}
+        <div className="space-y-7">
           <div>
-            <label className="block text-gray-700 font-medium mb-2" htmlFor="role">
-              Login As
-            </label>
-            <select
-              id="role"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-            >
-              <option value="admin">Admin</option>
-              <option value="teacher">Teacher</option>
-              <option value="parent">Parent</option>
+            <label className="block text-slate-700 font-medium mb-2">Role</label>
+            <select className="w-full h-16 rounded-2xl border-2 border-gray-800 px-5 text-3xl md:text-2xl bg-white outline-none" value={role} onChange={(e)=>setRole(e.target.value)}>
+              <option>Principal</option>
+              <option>Teacher</option>
+              <option>Admin</option>
+              <option>Parent</option>
             </select>
           </div>
 
-          {/* Email */}
           <div>
-            <label className="block text-gray-700 font-medium mb-2" htmlFor="email">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-              placeholder="you@example.com"
-              required
-            />
+            <label className="block text-slate-700 font-medium mb-2">Email</label>
+            <input type="email" placeholder="your.email@example.com" className="w-full h-16 rounded-2xl border border-gray-300 px-5 text-xl bg-white outline-none focus:ring-2 focus:ring-emerald-600" />
           </div>
 
-          {/* Password */}
           <div>
-            <label className="block text-gray-700 font-medium mb-2" htmlFor="password">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-              placeholder="Enter your password"
-              required
-            />
+            <label className="block text-slate-700 font-medium mb-2">Password</label>
+            <input type="password" placeholder="Enter your password" className="w-full h-16 rounded-2xl border border-gray-300 px-5 text-xl bg-white outline-none focus:ring-2 focus:ring-emerald-600" />
           </div>
 
-       
-          <div className="text-right">
-          </div>
-
-      
-          <button
-            type="submit"
-            className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition"
-          >
-            Log In
+          <button onClick={handleLogin} className="w-full h-16 bg-emerald-700 hover:bg-emerald-800 text-white text-2xl font-semibold rounded-2xl shadow-md transition">
+            Sign In as {role}
           </button>
-        </form>
+
+          <p className="text-center text-slate-500 text-lg pt-2">Demo credentials: any email and password will work</p>
+        </div>
       </div>
     </div>
-  );
+  )
 }
-
-export default App;
