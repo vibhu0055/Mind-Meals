@@ -116,12 +116,12 @@ export const computeDistribution = (total, counts) => {
     const share = loads[g] / totalLoad;
 
     const calories_per_student = count ? (total.calories * share) / count : 0;
-    const protein_per_student  = count ? (total.protein * share) / count : 0;
-    const carbs_per_student    = count ? (total.carbs * share) / count : 0;
-    const fat_per_student      = count ? (total.fat * share) / count : 0;
-    const fiber_per_student    = count ? (total.fiber * share) / count : 0;
-    const iron_per_student     = count ? (total.iron * share) / count : 0;
-    const calcium_per_student  = count ? (total.calcium * share) / count : 0;
+    const protein_per_student = count ? (total.protein * share) / count : 0;
+    const carbs_per_student = count ? (total.carbs * share) / count : 0;
+    const fat_per_student = count ? (total.fat * share) / count : 0;
+    const fiber_per_student = count ? (total.fiber * share) / count : 0;
+    const iron_per_student = count ? (total.iron * share) / count : 0;
+    const calcium_per_student = count ? (total.calcium * share) / count : 0;
 
     const rda = GROUP_CONFIG[g].rda_calories;
 
