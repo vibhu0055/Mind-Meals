@@ -74,7 +74,7 @@ export const getStudentCountsByGroup = async (school_id) => {
     SELECT cg.group_label, COUNT(s.id) AS count
     FROM class_groups cg
     LEFT JOIN students s
-      ON s.class_id = cg.class_id
+      ON s.class_id = cg.class_id AND s.school_id = cg.school_id
     WHERE cg.school_id = $1
     GROUP BY cg.group_label
     `,

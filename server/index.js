@@ -10,6 +10,7 @@ import classRoutes from './routes/classRoutes.js';
 import ingredientRoutes from './routes/ingredientRoutes.js';
 import classGroupRoutes from './routes/classgroupRoutes.js';
 import mealRoutes from './routes/mealRoutes.js';
+import nutritionRoutes from './routes/nutriRoutes.js';
 
 // school auth routes
 import schoolAuthRoutes from './routes/schoolAuth.routes.js';
@@ -47,7 +48,7 @@ app.use("/api/class", classRoutes);
 app.use('/api/ingredient', ingredientRoutes);
 app.use('/api/class-group', classGroupRoutes);
 app.use('/api/meal', mealRoutes);
-
+app.use('/api/nutrition', nutritionRoutes);
 // =========================
 // HEALTH CHECK 
 // =========================
