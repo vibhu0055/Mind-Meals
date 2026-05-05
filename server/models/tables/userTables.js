@@ -49,7 +49,8 @@ export const userTables = async () => {
         id SERIAL PRIMARY KEY,
         teacher_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         class_id INT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
-        UNIQUE (teacher_id, class_id)
+        UNIQUE (teacher_id, class_id),
+        UNIQUE (class_id)
       );
     `);
 

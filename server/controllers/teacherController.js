@@ -198,10 +198,29 @@ export const getTeachers = async (req, res) => {
     const { school_id } = req.user;
 
     const result = await pool.query(
-      `SELECT id, name, email, phone, can_manage_meals
-       FROM users
-       WHERE school_id = $1 AND role = 'teacher'
-       ORDER BY id DESC`,
+      `SELECT
+         u.id,
+         u.name,
+         u.email,
+         u.phone,
+         u.can_manage_meals,
+         COALESCE(
+           JSON_AGG(
+             JSON_BUILD_OBJECT(
+               'id', c.id,
+               'name', c.name,
+               'section', c.section
+             )
+             ORDER BY c.id DESC
+           ) FILTER (WHERE c.id IS NOT NULL),
+           '[]'
+         ) AS assigned_classes
+       FROM users u
+       LEFT JOIN teacher_classes tc ON tc.teacher_id = u.id
+       LEFT JOIN classes c ON c.id = tc.class_id AND c.school_id = u.school_id
+       WHERE u.school_id = $1 AND u.role = 'teacher'
+       GROUP BY u.id, u.name, u.email, u.phone, u.can_manage_meals
+       ORDER BY u.id DESC`,
       [school_id]
     );
 

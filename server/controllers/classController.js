@@ -40,9 +40,21 @@ export const getClasses = async (req, res) => {
     const { school_id } = req.user;
 
     const result = await pool.query(
-      `SELECT * FROM classes
-       WHERE school_id = $1
-       ORDER BY id DESC`,
+      `SELECT
+         c.*,
+         assigned_teacher.teacher_id AS assigned_teacher_id,
+         assigned_teacher.teacher_name AS assigned_teacher_name
+       FROM classes c
+       LEFT JOIN LATERAL (
+         SELECT tc.teacher_id, u.name AS teacher_name
+         FROM teacher_classes tc
+         JOIN users u ON u.id = tc.teacher_id AND u.role = 'teacher'
+         WHERE tc.class_id = c.id
+         ORDER BY tc.id DESC
+         LIMIT 1
+       ) assigned_teacher ON true
+       WHERE c.school_id = $1
+       ORDER BY c.id DESC`,
       [school_id]
     );
 
@@ -130,6 +142,8 @@ export const deleteClass = async (req, res) => {
 // ASSIGN TEACHER TO CLASS
 // =========================
 export const assignTeacherToClass = async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const { teacher_id, class_id } = req.body;
     const { school_id } = req.user;
@@ -140,46 +154,73 @@ export const assignTeacherToClass = async (req, res) => {
       });
     }
 
-    // 1. check class belongs to school
-    const classCheck = await pool.query(
-      `SELECT * FROM classes WHERE id = $1 AND school_id = $2`,
+    await client.query("BEGIN");
+
+    // 1. check class belongs to school and lock it while changing assignment
+    const classCheck = await client.query(
+      `SELECT * FROM classes WHERE id = $1 AND school_id = $2 FOR UPDATE`,
       [class_id, school_id]
     );
 
     if (classCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({
         message: "Class not found"
       });
     }
 
     // 2. check teacher belongs to school
-    const teacherCheck = await pool.query(
+    const teacherCheck = await client.query(
       `SELECT * FROM users WHERE id = $1 AND school_id = $2 AND role = 'teacher'`,
       [teacher_id, school_id]
     );
 
     if (teacherCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({
         message: "Teacher not found"
       });
     }
 
-    // 3. insert mapping
-    const result = await pool.query(
+    // 3. one class can have only one assigned teacher
+    await client.query(
+      `DELETE FROM teacher_classes
+       WHERE class_id = $1`,
+      [class_id]
+    );
+
+    await client.query(
       `INSERT INTO teacher_classes (teacher_id, class_id)
-       VALUES ($1, $2)
-       ON CONFLICT DO NOTHING
-       RETURNING *`,
+       VALUES ($1, $2)`,
       [teacher_id, class_id]
     );
 
+    const result = await client.query(
+      `SELECT
+         tc.teacher_id,
+         u.name AS teacher_name,
+         tc.class_id,
+         c.name AS class_name,
+         c.section
+       FROM teacher_classes tc
+       JOIN users u ON u.id = tc.teacher_id AND u.role = 'teacher'
+       JOIN classes c ON c.id = tc.class_id
+       WHERE tc.teacher_id = $1 AND tc.class_id = $2 AND c.school_id = $3`,
+      [teacher_id, class_id, school_id]
+    );
+
+    await client.query("COMMIT");
+
     return res.status(201).json({
       message: "Teacher assigned to class successfully",
-      mapping: result.rows[0] || "Already assigned"
+      mapping: result.rows[0]
     });
 
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error(err);
     return res.status(500).json({ message: "Server error" });
+  } finally {
+    client.release();
   }
 };
