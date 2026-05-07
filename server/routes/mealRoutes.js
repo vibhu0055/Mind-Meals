@@ -3,32 +3,34 @@ import pool from '../database/database.js';
 
 import {
   createMeal,
-  addMealIngredients,
-  distributeMeal,
+  updateMeal,
+  deleteMeal,
+  getTodaysMeal,
   getMeals,
   getMealById,
+  addMealIngredients,
+  distributeMeal,
   getMealDistribution,
-  deleteMeal,
+  getMealSummary,
+  getMealScore,
+  getMealSuggestions,
 } from '../controllers/mealController.js';
 
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// ── PERMISSION MIDDLEWARE ────────────────────────────────
+// ── Permission middleware ─────────────────────────────────────
 const requireMealPermission = async (req, res, next) => {
   try {
     if (req.user.role === 'school') return next();
-
     const { rows } = await pool.query(
       'SELECT can_manage_meals FROM users WHERE id = $1',
       [req.user.user_id]
     );
-
     if (!rows[0]?.can_manage_meals) {
       return res.status(403).json({ message: 'No meal permission' });
     }
-
     next();
   } catch (err) {
     console.error('Meal Permission Error:', err);
@@ -36,7 +38,10 @@ const requireMealPermission = async (req, res, next) => {
   }
 };
 
-// ── LIST / CREATE ────────────────────────────────────────
+// ── Today's meal (must be before /:meal_id) ──────────────────
+router.get('/today', protect(['school', 'teacher']), getTodaysMeal);
+
+// ── List / Create ─────────────────────────────────────────────
 router.get('/', protect(['school', 'teacher']), getMeals);
 
 router.post(
@@ -46,12 +51,23 @@ router.post(
   createMeal
 );
 
-// ── SINGLE MEAL ─────────────────────────────────────────
+// ── Single meal CRUD ──────────────────────────────────────────
 router.get('/:meal_id', protect(['school', 'teacher']), getMealById);
 
-router.delete('/:meal_id', protect(['school']), deleteMeal);
+router.put(
+  '/:meal_id',
+  protect(['school', 'teacher']),
+  requireMealPermission,
+  updateMeal
+);
 
-// ── INGREDIENTS ─────────────────────────────────────────
+router.delete(
+  '/:meal_id',
+  protect(['school']),
+  deleteMeal
+);
+
+// ── Ingredients ───────────────────────────────────────────────
 router.post(
   '/:meal_id/ingredients',
   protect(['school', 'teacher']),
@@ -59,18 +75,18 @@ router.post(
   addMealIngredients
 );
 
-// ── DISTRIBUTION ────────────────────────────────────────
+// ── Distribution ──────────────────────────────────────────────
 router.post(
   '/:meal_id/distribute',
   protect(['school', 'teacher']),
   requireMealPermission,
   distributeMeal
 );
+router.get('/:meal_id/distribution', protect(['school', 'teacher']), getMealDistribution);
 
-router.get(
-  '/:meal_id/distribution',
-  protect(['school', 'teacher']),
-  getMealDistribution
-);
+// ── Nutrition summary, score, suggestions ─────────────────────
+router.get('/:meal_id/summary',     protect(['school', 'teacher']), getMealSummary);
+router.get('/:meal_id/score',       protect(['school', 'teacher']), getMealScore);
+router.get('/:meal_id/suggestions', protect(['school', 'teacher']), getMealSuggestions);
 
 export default router;

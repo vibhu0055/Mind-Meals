@@ -1,25 +1,24 @@
 // =============================================================
 // RDA SERVICE
-// Source of truth for the personalised nutrition comparison.
+// Personalised nutrition comparison per student per meal.
 //
 // Flow:
 //  student { age, gender } → age_group → rda_reference row
 //  meal_id + student.class → meal_distributions row (intake)
-//  meal.meal_type → MEAL_FRACTIONS → scaled RDA for this meal
+//  Lunch fraction = 0.40 (PM-POSHAN standard)
 //  gap = received - scaled_rda
 //  status = deficient | adequate | excess
 //  bmi_flag = true if underweight AND calorie-deficient
 // =============================================================
 
 import pool from '../database/database.js';
-import { getAgeGroup, MEAL_FRACTIONS } from '../database/seedRDA.js';
+import { getAgeGroup } from '../database/seedRDA.js';
 
 const NUTRIENTS = ['calories', 'protein', 'carbs', 'fat', 'fiber', 'iron', 'calcium'];
 
-// ── Status thresholds ─────────────────────────────────────────
-// deficient : received < 90% of scaled RDA
-// adequate  : 90% – 120%
-// excess    : > 120%
+// PM-POSHAN context: school lunch = 40% of daily RDA
+const LUNCH_FRACTION = 0.40;
+
 const getNutrientStatus = (received, rda) => {
   if (!rda || rda === 0) return 'adequate';
   const pct = received / rda;
@@ -28,7 +27,14 @@ const getNutrientStatus = (received, rda) => {
   return 'adequate';
 };
 
-// ── Core report generator ─────────────────────────────────────
+// ── Adequacy category labels (per Scientific_Basis thresholds) ─
+const getAdequacyCategory = (pct) => {
+  if (pct < 50)  return 'Severe Deficiency';
+  if (pct < 75)  return 'Moderate Deficiency';
+  if (pct < 100) return 'Acceptable';
+  return 'Excellent';
+};
+
 export const generateStudentReport = async (student_id, meal_id) => {
 
   // 1. Student + latest BMI + class group label
@@ -39,14 +45,12 @@ export const generateStudentReport = async (student_id, meal_id) => {
        cg.group_label
      FROM students s
      LEFT JOIN LATERAL (
-       SELECT bmi_category
-       FROM health_records
+       SELECT bmi_category FROM health_records
        WHERE student_id = s.id
-       ORDER BY recorded_at DESC, id DESC
-       LIMIT 1
+       ORDER BY recorded_at DESC, id DESC LIMIT 1
      ) hr ON true
-     LEFT JOIN class_groups cg ON cg.class_id = s.class_id
-                               AND cg.school_id = s.school_id
+     LEFT JOIN class_groups cg
+       ON cg.class_id = s.class_id AND cg.school_id = s.school_id
      WHERE s.id = $1`,
     [student_id]
   );
@@ -64,16 +68,15 @@ export const generateStudentReport = async (student_id, meal_id) => {
 
   // 2. Meal info
   const mealRes = await pool.query(
-    `SELECT id, name, meal_type, served_date FROM meals WHERE id = $1`,
+    `SELECT id, name, served_date FROM meals WHERE id = $1`,
     [meal_id]
   );
   if (mealRes.rows.length === 0)
     throw new Error(`Meal ${meal_id} not found`);
 
-  const meal     = mealRes.rows[0];
-  const fraction = MEAL_FRACTIONS[meal.meal_type] ?? 0.33;
+  const meal = mealRes.rows[0];
 
-  // 3. What the student's group received from this meal
+  // 3. Intake from distribution
   const distRes = await pool.query(
     `SELECT
        calories_per_student AS calories,
@@ -95,16 +98,13 @@ export const generateStudentReport = async (student_id, meal_id) => {
     );
 
   const received = {};
-  for (const n of NUTRIENTS) {
-    received[n] = parseFloat(distRes.rows[0][n] || 0);
-  }
+  for (const n of NUTRIENTS) received[n] = parseFloat(distRes.rows[0][n] || 0);
 
-  // 4. Daily RDA lookup for age_group + gender
+  // 4. Daily RDA lookup
   const rdaRes = await pool.query(
     `SELECT * FROM rda_reference
-     WHERE age_group = $1 AND gender = $2
-     LIMIT 1`,
-    [age_group, gender === 'female' ? 'female' : gender === 'male' ? 'male' : 'other']
+     WHERE age_group = $1 AND gender = $2 LIMIT 1`,
+    [age_group, gender === 'female' ? 'female' : 'male']
   );
 
   if (rdaRes.rows.length === 0)
@@ -112,39 +112,42 @@ export const generateStudentReport = async (student_id, meal_id) => {
 
   const rdaDaily = rdaRes.rows[0];
 
-  // 5. Scale daily RDA → this meal's fraction
+  // 5. Scale daily RDA → lunch fraction
   const rda = {
-    calories: parseFloat(rdaDaily.calories_kcal || 0) * fraction,
-    protein:  parseFloat(rdaDaily.protein_g     || 0) * fraction,
-    carbs:    parseFloat(rdaDaily.carbs_g       || 0) * fraction,
-    fat:      parseFloat(rdaDaily.fat_g         || 0) * fraction,
-    fiber:    parseFloat(rdaDaily.fiber_g       || 0) * fraction,
-    iron:     parseFloat(rdaDaily.iron_mg       || 0) * fraction,
-    calcium:  parseFloat(rdaDaily.calcium_mg    || 0) * fraction,
+    calories: parseFloat(rdaDaily.calories_kcal || 0) * LUNCH_FRACTION,
+    protein:  parseFloat(rdaDaily.protein_g     || 0) * LUNCH_FRACTION,
+    carbs:    parseFloat(rdaDaily.carbs_g       || 0) * LUNCH_FRACTION,
+    fat:      parseFloat(rdaDaily.fat_g         || 0) * LUNCH_FRACTION,
+    fiber:    parseFloat(rdaDaily.fiber_g       || 0) * LUNCH_FRACTION,
+    iron:     parseFloat(rdaDaily.iron_mg       || 0) * LUNCH_FRACTION,
+    calcium:  parseFloat(rdaDaily.calcium_mg    || 0) * LUNCH_FRACTION,
   };
 
-  // 6. Gaps and statuses
+  // 6. Gaps, statuses, adequacy categories
   const gap = {};
   for (const n of NUTRIENTS) {
     gap[n] = parseFloat((received[n] - rda[n]).toFixed(3));
   }
 
-  // bmi_flag: true when student is underweight AND calorie-deficient
   const bmi_category  = student.bmi_category || null;
   const isUnderweight = (bmi_category || '').toLowerCase().includes('underweight');
   const bmi_flag      = isUnderweight && getNutrientStatus(received.calories, rda.calories) === 'deficient';
-
   const overall_status = getNutrientStatus(received.calories, rda.calories);
 
-  const nutrient_breakdown = NUTRIENTS.map((n) => ({
-    nutrient: n,
-    received: received[n],
-    rda:      parseFloat(rda[n].toFixed(3)),
-    gap:      gap[n],
-    status:   getNutrientStatus(received[n], rda[n]),
-  }));
+  const nutrient_breakdown = NUTRIENTS.map((n) => {
+    const pct = rda[n] > 0 ? (received[n] / rda[n]) * 100 : 100;
+    return {
+      nutrient:          n,
+      received:          received[n],
+      rda:               parseFloat(rda[n].toFixed(3)),
+      gap:               gap[n],
+      adequacy_pct:      Math.round(pct * 10) / 10,
+      adequacy_category: getAdequacyCategory(pct),
+      status:            getNutrientStatus(received[n], rda[n]),
+    };
+  });
 
-  // 7. Upsert into student_nutrition_reports
+  // 7. Upsert report
   await pool.query(
     `INSERT INTO student_nutrition_reports (
        student_id, meal_id, age_group, gender, bmi_category, bmi_flag,
@@ -188,18 +191,17 @@ export const generateStudentReport = async (student_id, meal_id) => {
 
   return {
     student_id,
-    student_name:  student.name,
+    student_name: student.name,
     meal_id,
-    meal_name:     meal.name,
-    meal_type:     meal.meal_type,
-    served_date:   meal.served_date,
+    meal_name:    meal.name,
+    served_date:  meal.served_date,
     group_label,
     age_group,
     gender,
     bmi_category,
     bmi_flag,
     overall_status,
-    meal_fraction:      fraction,
+    meal_fraction:      LUNCH_FRACTION,
     nutrient_breakdown,
   };
 };

@@ -130,7 +130,7 @@ export const getReport = async (req, res) => {
 
     const result = await pool.query(
       `SELECT snr.*, s.name AS student_name, m.name AS meal_name,
-              m.meal_type, m.served_date
+              m.served_date
        FROM student_nutrition_reports snr
        JOIN students s ON snr.student_id = s.id
        JOIN meals    m ON snr.meal_id    = m.id
@@ -152,7 +152,7 @@ export const getReport = async (req, res) => {
         student_name:      r.student_name,
         meal_id:           r.meal_id,
         meal_name:         r.meal_name,
-        meal_type:         r.meal_type,
+        
         served_date:       r.served_date,
         age_group:         r.age_group,
         gender:            r.gender,
@@ -187,7 +187,7 @@ export const getStudentReports = async (req, res) => {
       return res.status(404).json({ message: 'Student not found in your school' });
 
     const result = await pool.query(
-      `SELECT snr.*, m.name AS meal_name, m.meal_type, m.served_date
+      `SELECT snr.*, m.name AS meal_name, m.served_date
        FROM student_nutrition_reports snr
        JOIN meals m ON snr.meal_id = m.id
        WHERE snr.student_id = $1
@@ -201,7 +201,7 @@ export const getStudentReports = async (req, res) => {
       reports:    result.rows.map((r) => ({
         meal_id:        r.meal_id,
         meal_name:      r.meal_name,
-        meal_type:      r.meal_type,
+        
         served_date:    r.served_date,
         overall_status: r.overall_status,
         bmi_flag:       r.bmi_flag,
