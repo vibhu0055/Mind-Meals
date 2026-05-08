@@ -33,7 +33,38 @@ function bmiColor(category) {
 }
 
 function getHealthRecord(data) {
-  return data?.record || data?.health_record || data?.latest || data || null;
+  const record =
+    data?.record ||
+    data?.health_record ||
+    data?.latest ||
+    data ||
+    null;
+
+  if (!record) return null;
+
+  return {
+    ...record,
+
+    height_cm:
+      record.height_cm != null
+        ? Number(record.height_cm)
+        : null,
+
+    weight_kg:
+      record.weight_kg != null
+        ? Number(record.weight_kg)
+        : null,
+
+    muac_cm:
+      record.muac_cm != null
+        ? Number(record.muac_cm)
+        : null,
+
+    bmi:
+      record.bmi != null
+        ? Number(record.bmi)
+        : null,
+  };
 }
 
 export default function StudentsPage() {
@@ -160,7 +191,10 @@ export default function StudentsPage() {
         <div className="grid gap-2">
           {students.map((s) => {
             const latestHealth = latestHealthByStudent[s.id];
-            const bmi = latestHealth?.bmi;
+            const bmi =
+              latestHealth?.bmi != null
+                ? Number(latestHealth.bmi)
+                : null;
             const bmiCategory = latestHealth?.bmi_category || latestHealth?.category;
 
             return (
@@ -184,7 +218,7 @@ export default function StudentsPage() {
                   <div className="text-right min-w-14">
                     <div className="text-xs text-[var(--text-muted)]">BMI</div>
                     <div className="text-sm font-semibold text-[var(--text-primary)] mono">
-                      {typeof bmi === 'number' ? bmi.toFixed(1) : '-'}
+                      {bmi != null ? bmi.toFixed(1) : '-'}
                     </div>
                   </div>
                   <Badge color={bmiColor(bmiCategory)} className="min-w-20 justify-center">

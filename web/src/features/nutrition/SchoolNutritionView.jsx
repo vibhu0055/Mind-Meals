@@ -97,7 +97,7 @@ export default function SchoolNutritionView({ reports }) {
       <EmptyState
         icon={School}
         title="No school-wide reports found"
-        description="Apply optional filters above and click Load Reports. Make sure meals have been distributed first."
+        description="Apply optional filters above and click Load Reports after meals have ingredients."
       />
     );
   }

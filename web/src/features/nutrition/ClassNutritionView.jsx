@@ -54,7 +54,6 @@ function ClassSummaryStats({ reports }) {
           {['deficient','adequate','excess'].map((s) => {
             const m  = STATUS_META[s];
             const ct = statusCounts[s] || 0;
-            const barW = Math.round((ct / reports.length) * 72);
             return (
               <div key={s} className="flex items-center justify-between gap-2">
                 <span className="text-xs text-[var(--text-secondary)] w-20 flex-shrink-0">{m.dot} {m.label}</span>
@@ -206,7 +205,7 @@ export default function ClassNutritionView({ reports, className, mealName }) {
       <EmptyState
         icon={Users}
         title="No student reports in this class"
-        description="Make sure students are enrolled and the meal has been distributed before analyzing."
+        description="Make sure students are enrolled and the meal has ingredients before analyzing."
       />
     );
   }

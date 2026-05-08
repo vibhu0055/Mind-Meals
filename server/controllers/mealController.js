@@ -13,15 +13,19 @@ import {
   computeMealSummary,
 } from '../services/mealService.js';
 
-// ── Helper: today's date string (UTC) ─────────────────────────
-const todayStr = () => new Date().toISOString().slice(0, 10);
-
 // ── Helper: is a served_date today? ──────────────────────────
-const isToday = (served_date) => {
-  const d = served_date instanceof Date
-    ? served_date.toISOString().slice(0, 10)
-    : String(served_date).slice(0, 10);
-  return d === todayStr();
+// All meal SELECTs cast served_date::text so it arrives as "YYYY-MM-DD".
+// We get today's date as a string from Postgres in IST and compare directly.
+const isToday = async (served_date, db) => {
+  // node-postgres returns DATE columns as JS Date objects regardless of ::text cast
+  // Use local IST time extraction to get YYYY-MM-DD
+  const d = served_date instanceof Date ? served_date : new Date(served_date);
+  const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+  const res = await db.query(
+    `SELECT TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date, 'YYYY-MM-DD') AS today`
+  );
+  const today = res.rows[0].today;
+  return dateStr === today;
 };
 
 // =============================================================
@@ -37,8 +41,9 @@ export const createMeal = async (req, res) => {
       return res.status(400).json({ message: 'name and served_date are required' });
     }
 
-    // Prevent creating meals for past dates
-    if (served_date < todayStr()) {
+    // Prevent creating meals for past dates (compare using DB CURRENT_DATE)
+    const pastCheck = await pool.query(`SELECT ($1::date < CURRENT_DATE) AS is_past`, [served_date]);
+    if (pastCheck.rows[0].is_past) {
       return res.status(400).json({ message: 'Cannot create a meal for a past date' });
     }
 
@@ -81,7 +86,7 @@ export const updateMeal = async (req, res) => {
     if (mealCheck.rows.length === 0) {
       return res.status(404).json({ message: 'Meal not found in your school' });
     }
-    if (!isToday(mealCheck.rows[0].served_date)) {
+    if (!(await isToday(mealCheck.rows[0].served_date, pool))) {
       return res.status(403).json({ message: 'Only today\'s meal can be edited' });
     }
 
@@ -114,7 +119,7 @@ export const deleteMeal = async (req, res) => {
     if (mealCheck.rows.length === 0) {
       return res.status(404).json({ message: 'Meal not found in your school' });
     }
-    if (!isToday(mealCheck.rows[0].served_date)) {
+    if (!(await isToday(mealCheck.rows[0].served_date, pool))) {
       return res.status(403).json({ message: 'Only today\'s meal can be deleted' });
     }
 
@@ -136,8 +141,8 @@ export const getTodaysMeal = async (req, res) => {
     const { school_id } = req.user;
 
     const result = await pool.query(
-      `SELECT * FROM meals WHERE school_id = $1 AND served_date = $2`,
-      [school_id, todayStr()]
+      `SELECT * FROM meals WHERE school_id = $1 AND served_date = CURRENT_DATE`,
+      [school_id]
     );
 
     if (result.rows.length === 0) {
@@ -254,7 +259,7 @@ export const addMealIngredients = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Meal not found in your school' });
     }
-    if (!isToday(mealCheck.rows[0].served_date)) {
+    if (!(await isToday(mealCheck.rows[0].served_date, pool))) {
       await client.query('ROLLBACK');
       return res.status(403).json({ message: 'Ingredients can only be added to today\'s meal' });
     }

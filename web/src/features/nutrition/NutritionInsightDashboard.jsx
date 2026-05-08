@@ -142,6 +142,51 @@ function ProgressBarsSection({ breakdown }) {
   );
 }
 
+function NutrientAdequacyTable({ breakdown }) {
+  return (
+    <Card className="mb-6 overflow-hidden p-0">
+      <div className="px-5 py-3 border-b border-[var(--border)]">
+        <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Nutrient adequacy table</div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[var(--border)]">
+              {['Nutrient', 'Received', 'Required', 'Adequacy', 'Category', 'Gap'].map((heading) => (
+                <th key={heading} className="px-4 py-2.5 text-left text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider whitespace-nowrap">
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {breakdown.map((n) => {
+              const meta = NUTRIENT_MAP[n.nutrient] || { label: n.nutrient, unit: 'g' };
+              const pct = n.pct ?? (n.rda ? Math.round((n.received / n.rda) * 100) : null);
+              const st = getStatus(pct) || STATUS_META.adequate;
+              const gap = n.gap ?? (n.rda && n.received != null ? n.received - n.rda : null);
+              return (
+                <tr key={n.nutrient} className="border-b border-[var(--border-soft)] hover:bg-[var(--bg-hover)] transition-colors">
+                  <td className="px-4 py-3 text-sm font-medium text-[var(--text-primary)]">{meta.label}</td>
+                  <td className="px-4 py-3 text-xs mono text-[var(--text-secondary)]">{n.received != null ? n.received.toFixed(1) : '-'}{meta.unit}</td>
+                  <td className="px-4 py-3 text-xs mono text-[var(--text-muted)]">{n.rda != null ? n.rda.toFixed(1) : '-'}{meta.unit}</td>
+                  <td className="px-4 py-3">
+                    <span style={{ color: st.color }} className="text-xs font-semibold mono">{pct == null ? '-' : `${pct}%`}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge color={st.badge}>{n.adequacy_category || st.label}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-xs mono text-[var(--text-muted)]">{gap == null ? '-' : `${gap >= 0 ? '+' : ''}${gap.toFixed(1)}${meta.unit}`}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
 function IntakeVsRDAChart({ breakdown }) {
   const data = breakdown.map((n) => {
     const meta = NUTRIENT_MAP[n.nutrient];
@@ -168,23 +213,24 @@ function IntakeVsRDAChart({ breakdown }) {
   );
 }
 
+function renderPieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }) {
+  if (percent < 0.06) return null;
+  const radians = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * radians);
+  const y = cy + radius * Math.sin(-midAngle * radians);
+  return <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight="700">{`${(percent * 100).toFixed(0)}%`}</text>;
+}
+
 function NutrientPieChart({ breakdown }) {
   const data = breakdown
     .map((n, i) => ({ name: NUTRIENT_MAP[n.nutrient]?.label || n.nutrient, value: parseFloat(n.received?.toFixed(2) ?? 0), fill: PIE_COLORS[i % PIE_COLORS.length] }))
     .filter((d) => d.value > 0);
-  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-    if (percent < 0.06) return null;
-    const R = Math.PI / 180;
-    const r = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + r * Math.cos(-midAngle * R);
-    const y = cy + r * Math.sin(-midAngle * R);
-    return <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight="700">{`${(percent * 100).toFixed(0)}%`}</text>;
-  };
   return (
     <div className="h-52">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie data={data} cx="50%" cy="50%" outerRadius={76} dataKey="value" labelLine={false} label={<CustomLabel />}>
+          <Pie data={data} cx="50%" cy="50%" outerRadius={76} dataKey="value" labelLine={false} label={renderPieLabel}>
             {data.map((d, i) => <Cell key={i} fill={d.fill} />)}
           </Pie>
           <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', color: 'var(--text-muted)' }} />
@@ -206,7 +252,7 @@ export default function NutritionInsightDashboard({ report, studentName, mealNam
       <EmptyState
         icon={UtensilsCrossed}
         title="No nutrient data in this report"
-        description="The report was generated but contains no nutrient breakdown. Ensure the meal has been distributed first."
+        description="The report was generated but contains no nutrient breakdown. Ensure the meal has ingredients and assigned class groups."
       />
     );
   }
@@ -218,7 +264,7 @@ export default function NutritionInsightDashboard({ report, studentName, mealNam
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-base font-bold text-[var(--text-primary)]">{studentName || `Student ${norm.student_id}`}</h2>
             <Badge color={sm.badge}>{sm.dot} {sm.label}</Badge>
-            {norm.bmi_flag && norm.bmi_flag !== 'normal' && <Badge color="amber">BMI: {norm.bmi_flag}</Badge>}
+            {norm.bmi_flag && <Badge color="amber">BMI: {norm.bmi_category || 'flagged'}</Badge>}
           </div>
           <p className="text-xs text-[var(--text-muted)] mt-1 flex items-center gap-1.5 flex-wrap">
             {mealName && <span className="text-[var(--accent)]">🍽 {mealName}</span>}
@@ -239,6 +285,7 @@ export default function NutritionInsightDashboard({ report, studentName, mealNam
         {breakdown.map((n) => <NutrientCard key={n.nutrient} n={n} />)}
       </div>
       <ProgressBarsSection breakdown={breakdown} />
+      <NutrientAdequacyTable breakdown={breakdown} />
       <div className="grid grid-cols-2 gap-5">
         <Card>
           <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4">📈 Intake vs RDA</div>

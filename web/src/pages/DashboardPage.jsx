@@ -199,11 +199,11 @@ export default function DashboardPage() {
               <QuickAction to="/students" icon={Users} title="View All Students" desc="Browse students by class" color="purple" />
             </>
           )}
-          <QuickAction to="/meals" icon={UtensilsCrossed} title="Log a Meal" desc="Record ingredients and distribute nutrition" color="green" />
+          <QuickAction to="/meals" icon={UtensilsCrossed} title="Log a Meal" desc="Record ingredients and review nutrition" color="green" />
           {isTeacher && (
             <QuickAction to="/health" icon={HeartPulse} title="Add Health Record" desc="Record student height, weight and BMI" color="amber" />
           )}
-          <QuickAction to="/nutrition" icon={TrendingUp} title="Nutrition Reports" desc="View deficiency and distribution data" color="purple" />
+          <QuickAction to="/nutrition" icon={TrendingUp} title="Nutrition Reports" desc="View adequacy and deficiency data" color="purple" />
         </div>
       </div>
     </div>
