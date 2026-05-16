@@ -1,105 +1,116 @@
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import pool from '../database/database.js';
 
-// 🎯 Allowed keywords
-const allowedKeywords = [
-  'rice', 'wheat', 'bajra', 'ragi', 'barley',
-  'dal', 'gram', 'moong', 'chana', 'masoor',
-  'potato', 'onion', 'tomato', 'carrot', 'cabbage',
-  'cauliflower', 'brinjal', 'gourd', 'capsicum',
-  'spinach', 'amaranth',
-  'banana', 'apple',
-  'milk', 'curd', 'oil', 'sugar'
-];
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const isAllowed = (name) => {
-  return allowedKeywords.some(keyword => name.includes(keyword));
-};
-
-// 🧠 Normalize display name
-const getDisplayName = (name) => {
-  if (name.includes('brinjal')) return 'Brinjal';
-  if (name.includes('gourd')) return 'Gourd';
-  if (name.includes('rice')) return 'Rice';
-  if (name.includes('wheat')) return 'Wheat';
-  if (name.includes('bajra')) return 'Bajra';
-  if (name.includes('ragi')) return 'Ragi';
-
-  if (name.includes('dal') || name.includes('gram')) return 'Dal';
-
-  if (name.includes('potato')) return 'Potato';
-  if (name.includes('onion')) return 'Onion';
-  if (name.includes('tomato')) return 'Tomato';
-  if (name.includes('carrot')) return 'Carrot';
-  if (name.includes('cabbage')) return 'Cabbage';
-  if (name.includes('cauliflower')) return 'Cauliflower';
-  if (name.includes('capsicum')) return 'Capsicum';
-  if (name.includes('spinach')) return 'Spinach';
-
-  if (name.includes('banana')) return 'Banana';
-  if (name.includes('apple')) return 'Apple';
-
-  if (name.includes('milk')) return 'Milk';
-  if (name.includes('oil')) return 'Oil';
-  if (name.includes('sugar')) return 'Sugar';
-
-  return name; // fallback
-};
-
-// 🧠 Category mapping
-const getCategory = (group, name) => {
-  if (group?.includes('Cereals')) return 'Cereal';
-  if (group?.includes('Legumes')) return 'Pulses';
-  if (group?.includes('Vegetables')) return 'Vegetable';
-  if (group?.includes('Fruits')) return 'Fruit';
-
-  if (name.includes('oil')) return 'Fat';
-  if (name.includes('milk')) return 'Dairy';
-
+// 🧠 Map IFCT food group → category
+const getCategory = (group) => {
+  if (!group) return 'Other';
+  if (group.includes('Cereals') || group.includes('Millets')) return 'Cereal';
+  if (group.includes('Legumes') || group.includes('Pulses') || group.includes('Beans')) return 'Pulses';
+  if (group.includes('Green Leafy')) return 'Green Leafy Vegetable';
+  if (group.includes('Vegetable') || group.includes('Roots') || group.includes('Tubers')) return 'Vegetable';
+  if (group.includes('Fruit')) return 'Fruit';
+  if (group.includes('Milk') || group.includes('Dairy')) return 'Dairy';
+  if (group.includes('Egg')) return 'Egg';
+  if (group.includes('Fish') || group.includes('Marine') || group.includes('Freshwater')) return 'Fish';
+  if (group.includes('Meat') || group.includes('Poultry')) return 'Meat';
+  if (group.includes('Nuts') || group.includes('Oil Seeds')) return 'Nuts & Seeds';
+  if (group.includes('Fats') || group.includes('Oils')) return 'Fat';
+  if (group.includes('Sugar') || group.includes('Jaggery')) return 'Sugar';
+  if (group.includes('Spices') || group.includes('Condiments')) return 'Spice';
+  if (group.includes('Beverages')) return 'Beverage';
   return 'Other';
 };
 
 const importIFCT = async () => {
   try {
-    const rawData = fs.readFileSync('./ifct2017_clean.json');
+    // Load ifct.txt — place it in the same folder as this script
+    const filePath = join(__dirname, 'ifct2017_clean.json');
+    const rawData = fs.readFileSync(filePath, 'utf8');
     const foods = JSON.parse(rawData);
 
-    console.log(`📥 Total items: ${foods.length}`);
+    console.log(`📥 Total items in IFCT 2017: ${foods.length}`);
 
     const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      let count = 0;
+      // ── Idempotent migrations ──────────────────────────────────────────────
+      // Ensure ingredients table has the columns we need
+      const ingredientMigrations = [
+        `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS display_name  VARCHAR(150)`,
+        `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS category      VARCHAR(100)`,
+        `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS ifct_code     VARCHAR(10)`,
+        `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS food_group    VARCHAR(100)`,
+      ];
+      for (const sql of ingredientMigrations) await client.query(sql);
 
-      for (let item of foods) {
-        const name = item.name?.toLowerCase().trim();
+      // Ensure ingredient_nutrition table exists
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS ingredient_nutrition (
+          id                  SERIAL PRIMARY KEY,
+          ingredient_id       INT UNIQUE NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+          calories_per_100g   DECIMAL(8,4),
+          protein_per_100g    DECIMAL(7,4),
+          carbs_per_100g      DECIMAL(7,4),
+          fat_per_100g        DECIMAL(7,4),
+          fiber_per_100g      DECIMAL(7,4),
+          iron_mg_per_100g    DECIMAL(7,4),
+          calcium_mg_per_100g DECIMAL(8,4)
+        );
+      `);
+
+      console.log('✅ Migrations done');
+
+      // ── Deduplicate names: if same name appears >1 time, append group ──────
+      const nameCount = {};
+      for (const item of foods) {
+        const key = item.name?.trim().toLowerCase();
+        if (key) nameCount[key] = (nameCount[key] || 0) + 1;
+      }
+
+      // ── Seed loop ──────────────────────────────────────────────────────────
+      let inserted = 0;
+      let skipped  = 0;
+
+      for (const item of foods) {
+        const rawName   = item.name?.trim();
         const nutrition = item.nutrition;
-        const group = item.group;
 
-        if (!name || !nutrition) continue;
-        if (!isAllowed(name)) continue;
+        if (!rawName || !nutrition) { skipped++; continue; }
 
-        const displayName = getDisplayName(name);
-        const category = getCategory(group, name);
+        // If this name is a duplicate in the source, make it unique by appending group
+        const isDupe      = nameCount[rawName.toLowerCase()] > 1;
+        const uniqueName  = isDupe ? rawName + ' (' + item.group + ')' : rawName;
 
-        // 1️⃣ Insert ingredient
+        const name        = uniqueName.toLowerCase();
+        const displayName = uniqueName;
+        const category    = getCategory(item.group);
+        const ifctCode    = item.code   || null;
+        const foodGroup   = item.group  || null;
+
+        // 1️⃣ Upsert into ingredients
         const res = await client.query(
           `
-          INSERT INTO ingredients (name, display_name, category)
-          VALUES ($1, $2, $3)
+          INSERT INTO ingredients (name, display_name, category, ifct_code, food_group)
+          VALUES ($1, $2, $3, $4, $5)
           ON CONFLICT (name) DO UPDATE SET
             display_name = EXCLUDED.display_name,
-            category = EXCLUDED.category
+            category     = EXCLUDED.category,
+            ifct_code    = EXCLUDED.ifct_code,
+            food_group   = EXCLUDED.food_group
           RETURNING id
           `,
-          [name, displayName, category]
+          [name, displayName, category, ifctCode, foodGroup]
         );
 
         const ingredientId = res.rows[0].id;
 
-        // 2️⃣ Insert nutrition
+        // 2️⃣ Upsert into ingredient_nutrition
         await client.query(
           `
           INSERT INTO ingredient_nutrition (
@@ -114,39 +125,36 @@ const importIFCT = async () => {
           )
           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
           ON CONFLICT (ingredient_id) DO UPDATE SET
-            calories_per_100g = EXCLUDED.calories_per_100g,
-            protein_per_100g = EXCLUDED.protein_per_100g,
-            carbs_per_100g = EXCLUDED.carbs_per_100g,
-            fat_per_100g = EXCLUDED.fat_per_100g,
-            fiber_per_100g = EXCLUDED.fiber_per_100g,
-            iron_mg_per_100g = EXCLUDED.iron_mg_per_100g,
+            calories_per_100g   = EXCLUDED.calories_per_100g,
+            protein_per_100g    = EXCLUDED.protein_per_100g,
+            carbs_per_100g      = EXCLUDED.carbs_per_100g,
+            fat_per_100g        = EXCLUDED.fat_per_100g,
+            fiber_per_100g      = EXCLUDED.fiber_per_100g,
+            iron_mg_per_100g    = EXCLUDED.iron_mg_per_100g,
             calcium_mg_per_100g = EXCLUDED.calcium_mg_per_100g
           `,
           [
             ingredientId,
-            nutrition.energy_kcal || null,
-            nutrition.protein_g || null,
-            nutrition.carbs_g || null,
-            nutrition.fat_g || null,
-            nutrition.fiber_g || null,
-            nutrition.iron_mg || null,
-            nutrition.calcium_mg || null
+            nutrition.energy_kcal  ?? null,
+            nutrition.protein_g    ?? null,
+            nutrition.carbs_g      ?? null,
+            nutrition.fat_g        ?? null,
+            nutrition.fiber_g      ?? null,
+            nutrition.iron_mg      ?? null,
+            nutrition.calcium_mg   ?? null,
           ]
         );
 
-        count++;
-
-        if (count % 20 === 0) {
-          console.log(`⏳ Inserted ${count}`);
-        }
+        inserted++;
+        if (inserted % 50 === 0) console.log(`⏳ Processed ${inserted}...`);
       }
 
       await client.query('COMMIT');
-      console.log(`🎉 Done! Total inserted: ${count}`);
+      console.log(`🎉 Done! Inserted/updated: ${inserted} | Skipped: ${skipped}`);
 
     } catch (err) {
       await client.query('ROLLBACK');
-      console.error('❌ Error:', err);
+      console.error('❌ DB error:', err);
     } finally {
       client.release();
     }
