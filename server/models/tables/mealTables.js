@@ -9,7 +9,9 @@ export const mealTables = async () => {
         id           SERIAL PRIMARY KEY,
         name         VARCHAR(150) UNIQUE NOT NULL,
         display_name VARCHAR(150) NOT NULL,
-        category     VARCHAR(100) NOT NULL
+        category     VARCHAR(100) NOT NULL,
+        ifct_code VARCHAR(50),
+        food_group VARCHAR(100)
       );
     `);
 
@@ -56,14 +58,17 @@ export const mealTables = async () => {
     `);
 
     // ── CLASS GROUPS ──────────────────────────────────────────────────────────
+    // Groups are organisational labels only (G1-G4).
+    // Nutrition distribution is dynamically computed from real student
+    // age + gender RDA data — weight and rda_calories are no longer needed.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS class_groups (
         id          SERIAL PRIMARY KEY,
         school_id   INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
         class_id    INT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
         group_label VARCHAR(5) NOT NULL CHECK (group_label IN ('G1','G2','G3','G4')),
-        weight      DECIMAL(4,2) NOT NULL CHECK (weight > 0),
-        rda_calories INT NOT NULL CHECK (rda_calories > 0),
+        created_at  TIMESTAMP DEFAULT NOW(),
+        updated_at  TIMESTAMP DEFAULT NOW(),
         UNIQUE (school_id, class_id)
       );
     `);

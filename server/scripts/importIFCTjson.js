@@ -5,7 +5,6 @@ import pool from '../database/database.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// 🧠 Map IFCT food group → category
 const getCategory = (group) => {
   if (!group) return 'Other';
   if (group.includes('Cereals') || group.includes('Millets')) return 'Cereal';
@@ -27,7 +26,6 @@ const getCategory = (group) => {
 
 const importIFCT = async () => {
   try {
-    // Load ifct.txt — place it in the same folder as this script
     const filePath = join(__dirname, 'ifct2017_clean.json');
     const rawData = fs.readFileSync(filePath, 'utf8');
     const foods = JSON.parse(rawData);
@@ -39,8 +37,6 @@ const importIFCT = async () => {
     try {
       await client.query('BEGIN');
 
-      // ── Idempotent migrations ──────────────────────────────────────────────
-      // Ensure ingredients table has the columns we need
       const ingredientMigrations = [
         `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS display_name  VARCHAR(150)`,
         `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS category      VARCHAR(100)`,
@@ -49,7 +45,6 @@ const importIFCT = async () => {
       ];
       for (const sql of ingredientMigrations) await client.query(sql);
 
-      // Ensure ingredient_nutrition table exists
       await client.query(`
         CREATE TABLE IF NOT EXISTS ingredient_nutrition (
           id                  SERIAL PRIMARY KEY,
@@ -66,14 +61,6 @@ const importIFCT = async () => {
 
       console.log('✅ Migrations done');
 
-      // ── Deduplicate names: if same name appears >1 time, append group ──────
-      const nameCount = {};
-      for (const item of foods) {
-        const key = item.name?.trim().toLowerCase();
-        if (key) nameCount[key] = (nameCount[key] || 0) + 1;
-      }
-
-      // ── Seed loop ──────────────────────────────────────────────────────────
       let inserted = 0;
       let skipped  = 0;
 
@@ -83,17 +70,13 @@ const importIFCT = async () => {
 
         if (!rawName || !nutrition) { skipped++; continue; }
 
-        // If this name is a duplicate in the source, make it unique by appending group
-        const isDupe      = nameCount[rawName.toLowerCase()] > 1;
-        const uniqueName  = isDupe ? rawName + ' (' + item.group + ')' : rawName;
-
-        const name        = uniqueName.toLowerCase();
-        const displayName = uniqueName;
+        // ✅ Use IFCT name as-is — no duplicate suffix logic
+        const name        = rawName.toLowerCase();
+        const displayName = rawName;
         const category    = getCategory(item.group);
-        const ifctCode    = item.code   || null;
-        const foodGroup   = item.group  || null;
+        const ifctCode    = item.code  || null;
+        const foodGroup   = item.group || null;
 
-        // 1️⃣ Upsert into ingredients
         const res = await client.query(
           `
           INSERT INTO ingredients (name, display_name, category, ifct_code, food_group)
@@ -110,7 +93,6 @@ const importIFCT = async () => {
 
         const ingredientId = res.rows[0].id;
 
-        // 2️⃣ Upsert into ingredient_nutrition
         await client.query(
           `
           INSERT INTO ingredient_nutrition (
@@ -135,13 +117,13 @@ const importIFCT = async () => {
           `,
           [
             ingredientId,
-            nutrition.energy_kcal  ?? null,
-            nutrition.protein_g    ?? null,
-            nutrition.carbs_g      ?? null,
-            nutrition.fat_g        ?? null,
-            nutrition.fiber_g      ?? null,
-            nutrition.iron_mg      ?? null,
-            nutrition.calcium_mg   ?? null,
+            nutrition.energy_kcal ?? null,
+            nutrition.protein_g   ?? null,
+            nutrition.carbs_g     ?? null,
+            nutrition.fat_g       ?? null,
+            nutrition.fiber_g     ?? null,
+            nutrition.iron_mg     ?? null,
+            nutrition.calcium_mg  ?? null,
           ]
         );
 

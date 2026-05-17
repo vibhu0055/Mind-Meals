@@ -63,7 +63,8 @@ router.put(
 
 router.delete(
   '/:meal_id',
-  protect(['school']),
+  protect(['school', 'teacher']),
+  requireMealPermission,
   deleteMeal
 );
 

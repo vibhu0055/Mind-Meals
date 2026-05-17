@@ -80,7 +80,7 @@ export const updateMeal = async (req, res) => {
     if (!name) return res.status(400).json({ message: 'name is required' });
 
     const mealCheck = await pool.query(
-      `SELECT * FROM meals WHERE id = $1 AND school_id = $2`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE id = $1 AND school_id = $2`,
       [meal_id, school_id]
     );
     if (mealCheck.rows.length === 0) {
@@ -91,7 +91,7 @@ export const updateMeal = async (req, res) => {
     }
 
     const result = await pool.query(
-      `UPDATE meals SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      `UPDATE meals SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at`,
       [name, meal_id]
     );
 
@@ -113,7 +113,7 @@ export const deleteMeal = async (req, res) => {
     const { meal_id }   = req.params;
 
     const mealCheck = await pool.query(
-      `SELECT * FROM meals WHERE id = $1 AND school_id = $2`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE id = $1 AND school_id = $2`,
       [meal_id, school_id]
     );
     if (mealCheck.rows.length === 0) {
@@ -141,7 +141,7 @@ export const getTodaysMeal = async (req, res) => {
     const { school_id } = req.user;
 
     const result = await pool.query(
-      `SELECT * FROM meals WHERE school_id = $1 AND served_date = CURRENT_DATE`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE school_id = $1 AND served_date = CURRENT_DATE`,
       [school_id]
     );
 
@@ -178,7 +178,7 @@ export const getMeals = async (req, res) => {
     const { school_id } = req.user;
     const { date }      = req.query;
 
-    let query  = `SELECT * FROM meals WHERE school_id = $1`;
+    let query  = `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE school_id = $1`;
     const params = [school_id];
 
     if (date) {
@@ -206,7 +206,7 @@ export const getMealById = async (req, res) => {
     const { meal_id }   = req.params;
 
     const mealResult = await pool.query(
-      `SELECT * FROM meals WHERE id = $1 AND school_id = $2`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE id = $1 AND school_id = $2`,
       [meal_id, school_id]
     );
     if (mealResult.rows.length === 0) {
@@ -252,7 +252,7 @@ export const addMealIngredients = async (req, res) => {
     }
 
     const mealCheck = await client.query(
-      `SELECT * FROM meals WHERE id = $1 AND school_id = $2`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE id = $1 AND school_id = $2`,
       [meal_id, school_id]
     );
     if (mealCheck.rows.length === 0) {
@@ -343,7 +343,7 @@ export const distributeMeal = async (req, res) => {
     const { meal_id }   = req.params;
 
     const mealCheck = await pool.query(
-      `SELECT * FROM meals WHERE id = $1 AND school_id = $2`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE id = $1 AND school_id = $2`,
       [meal_id, school_id]
     );
     if (mealCheck.rows.length === 0) {
@@ -394,7 +394,7 @@ export const getMealDistribution = async (req, res) => {
     const { meal_id }   = req.params;
 
     const mealCheck = await pool.query(
-      `SELECT * FROM meals WHERE id = $1 AND school_id = $2`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE id = $1 AND school_id = $2`,
       [meal_id, school_id]
     );
     if (mealCheck.rows.length === 0) {
@@ -455,7 +455,7 @@ export const getMealSummary = async (req, res) => {
     const { meal_id }   = req.params;
 
     const mealCheck = await pool.query(
-      `SELECT * FROM meals WHERE id = $1 AND school_id = $2`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE id = $1 AND school_id = $2`,
       [meal_id, school_id]
     );
     if (mealCheck.rows.length === 0) {
@@ -488,7 +488,7 @@ export const getMealScore = async (req, res) => {
     const { meal_id }   = req.params;
 
     const mealCheck = await pool.query(
-      `SELECT * FROM meals WHERE id = $1 AND school_id = $2`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE id = $1 AND school_id = $2`,
       [meal_id, school_id]
     );
     if (mealCheck.rows.length === 0) {
@@ -534,7 +534,7 @@ export const getMealSuggestions = async (req, res) => {
     const { meal_id }   = req.params;
 
     const mealCheck = await pool.query(
-      `SELECT * FROM meals WHERE id = $1 AND school_id = $2`,
+      `SELECT id, school_id, name, served_date::text AS served_date, created_by, created_at, updated_at FROM meals WHERE id = $1 AND school_id = $2`,
       [meal_id, school_id]
     );
     if (mealCheck.rows.length === 0) {

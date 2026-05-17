@@ -11,7 +11,7 @@ export const rdaTables = async () => {
       CREATE TABLE IF NOT EXISTS rda_reference (
         id            SERIAL PRIMARY KEY,
         age_group     VARCHAR(10) NOT NULL,
-        gender        VARCHAR(10) NOT NULL CHECK (gender IN ('male','female','other')),
+        gender        VARCHAR(10) NOT NULL CHECK (gender IN ('male','female')),
         calories_kcal DECIMAL(8,2) NOT NULL,
         protein_g     DECIMAL(8,2) NOT NULL,
         carbs_g       DECIMAL(8,2),
