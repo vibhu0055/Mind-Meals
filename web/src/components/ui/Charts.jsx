@@ -352,7 +352,7 @@ export function NutrientComparisonChart({ nutrients = [], width = 560, height = 
   );
 }
 
-export function PmPoshanComparisonChart({ pmPoshan, width = 480, height = 190 }) {
+export function PmPoshanComparisonChart({ pmPoshan, width = 440, height = 150 }) {
   const rows = [
     { key: 'primary', label: 'Primary', data: pmPoshan?.primary },
     { key: 'upper_primary', label: 'Upper Primary', data: pmPoshan?.upper_primary },
@@ -360,10 +360,11 @@ export function PmPoshanComparisonChart({ pmPoshan, width = 480, height = 190 })
 
   if (!rows.length) return null;
 
-  const pad = { top: 18, right: 18, bottom: 32, left: 94 };
+  const pad = { top: 14, right: 72, bottom: 28, left: 96 };
   const innerW = width - pad.left - pad.right;
   const rowH = (height - pad.top - pad.bottom) / rows.length;
-  const colorFor = (pct) => (pct >= 90 ? 'var(--accent)' : pct >= 70 ? 'var(--amber)' : 'var(--red)');
+  const labelX = innerW + 12;
+  const colorFor = (pct) => (pct >= 90 ? 'var(--accent)' : pct >= 70 ? 'var(--amber)' : '#f59e0b');
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ display: 'block' }}>
@@ -387,14 +388,14 @@ export function PmPoshanComparisonChart({ pmPoshan, width = 480, height = 190 })
               <text x={-12} y={yBase + 13} fontSize={10} fill="var(--text-secondary)" textAnchor="end">
                 {row.label}
               </text>
-              <rect x={0} y={yBase} width={innerW} height={9} rx={4} fill="var(--bg-hover)" />
-              <rect x={0} y={yBase} width={Math.min(caloriePct, 120) / 120 * innerW} height={9} rx={4} fill={colorFor(caloriePct)} />
-              <text x={innerW + 6} y={yBase + 8} fontSize={9} fill={colorFor(caloriePct)}>
+              <rect x={0} y={yBase} width={innerW} height={8} rx={4} fill="var(--bg-hover)" />
+              <rect x={0} y={yBase} width={Math.min(caloriePct, 100) / 100 * innerW} height={8} rx={4} fill={colorFor(caloriePct)} />
+              <text x={labelX} y={yBase + 7} fontSize={9} fill={colorFor(caloriePct)}>
                 C {caloriePct.toFixed(0)}%
               </text>
-              <rect x={0} y={yBase + 16} width={innerW} height={9} rx={4} fill="var(--bg-hover)" />
-              <rect x={0} y={yBase + 16} width={Math.min(proteinPct, 120) / 120 * innerW} height={9} rx={4} fill={colorFor(proteinPct)} />
-              <text x={innerW + 6} y={yBase + 24} fontSize={9} fill={colorFor(proteinPct)}>
+              <rect x={0} y={yBase + 16} width={innerW} height={8} rx={4} fill="var(--bg-hover)" />
+              <rect x={0} y={yBase + 16} width={Math.min(proteinPct, 100) / 100 * innerW} height={8} rx={4} fill={colorFor(proteinPct)} />
+              <text x={labelX} y={yBase + 23} fontSize={9} fill={colorFor(proteinPct)}>
                 P {proteinPct.toFixed(0)}%
               </text>
             </g>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getMealById, getMealDistribution, getMealSummary, addMealIngredients, getIngredients, getIngredientNutrition } from '../api/meals';
+import { getMealById, getMealSummary, addMealIngredients, deleteMealIngredient, getIngredients, getIngredientNutrition } from '../api/meals';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Input from '../components/ui/Input';
@@ -31,15 +31,14 @@ import {
 } from 'lucide-react';
 import { useToast } from '../components/ui/Toast';
 
-const todayKey = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+const todayKey = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+
 const normalizeDate = (date) => {
   if (!date) return '';
-  const d = new Date(date);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(date));
 };
+
 const isToday = (date) => normalizeDate(date) === todayKey();
 
 const NUTRIENT_META = {
@@ -89,10 +88,12 @@ function scoreBadgeColor(label) {
 function pmStatusColor(status) {
   if (status === 'meeting_standard') return 'green';
   if (status === 'partial') return 'amber';
+  if (status === 'no_students') return 'muted';
   return 'red';
 }
 
 function normaliseSummary(data) {
+  // API returns { meal, summary: { ...fields, distribution: [...] } }
   return data?.summary || data || null;
 }
 
@@ -208,9 +209,22 @@ function AddIngredientRow({ onAdd }) {
   };
 
   const pick = async (ing) => {
-    let nutrition = {};
-    try { const r = await getIngredientNutrition(ing.id); nutrition = r.data || {}; } catch {}
-    onAdd({ ...ing, ...nutrition, ingredient_id: ing.id, quantity_g: parseFloat(qty) || 100 });
+    let extraNutrition = {};
+    try {
+      const r = await getIngredientNutrition(ing.id);
+      const data = r.data || {};
+      // Map /nutrition response shape (per_100g.*) onto the flat keys IngredientCard expects
+      const p = data.per_100g || {};
+      extraNutrition = {
+        calories_per_100g:  p.calories_kcal  ?? data.calories_per_100g,
+        protein_per_100g:   p.protein_g      ?? data.protein_per_100g,
+        carbs_per_100g:     p.carbs_g        ?? data.carbs_per_100g,
+        fat_per_100g:       p.fat_g          ?? data.fat_per_100g,
+        iron_mg_per_100g:   p.iron_mg        ?? data.iron_mg_per_100g,
+        calcium_mg_per_100g: p.calcium_mg    ?? data.calcium_mg_per_100g,
+      };
+    } catch {}
+    onAdd({ ...ing, ...extraNutrition, ingredient_id: ing.id, quantity_g: parseFloat(qty) || 100 });
     setQuery(''); setResults([]);
   };
 
@@ -245,52 +259,61 @@ function AddIngredientRow({ onAdd }) {
 }
 
 function DistributionSection({ distribution }) {
-  if (!distribution.length) {
+  // distribution is now a single object (or null) from summary.distribution
+  if (!distribution) {
     return (
       <EmptyState
         icon={Users}
         title="Distribution not available"
-        description="Assign classes to groups and add ingredients to this meal to see per-student nutrient allocation."
+        description="Add ingredients to this meal to see per-student nutrient allocation."
       />
     );
   }
 
+  const rows = [
+    ['per_student_calories', 'Calories', 'kcal'],
+    ['per_student_protein', 'Protein', 'g'],
+    ['per_student_carbs', 'Carbs', 'g'],
+    ['per_student_fat', 'Fat', 'g'],
+    ['per_student_iron', 'Iron', 'mg'],
+    ['per_student_calcium', 'Calcium', 'mg'],
+  ];
+
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {distribution.map((row) => (
-        <Card key={row.group_label} className="p-4">
-          <div className="flex justify-between items-center mb-3">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">{row.group_label}</div>
-            <div className="text-xs text-[var(--text-muted)]">{row.student_count} students</div>
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Users size={14} className="text-[var(--accent)]" />
+          <span className="text-sm font-semibold text-[var(--text-primary)]">Per-Student Allocation</span>
+        </div>
+        <div className="text-xs text-[var(--text-muted)]">{distribution.total_students} students</div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {rows.map(([key, label, unit]) => (
+          <div key={key} className="bg-[var(--bg-hover)] rounded px-2.5 py-2">
+            <div className="text-[10px] uppercase text-[var(--text-muted)]">{label}</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)] mono">
+              {formatNumber(Number(distribution[key]))}<span className="text-[10px] text-[var(--text-muted)] ml-0.5">{unit}</span>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ['calories_per_student', 'Calories', 'kcal'],
-              ['protein_per_student', 'Protein', 'g'],
-              ['iron_per_student', 'Iron', 'mg'],
-              ['calcium_per_student', 'Calcium', 'mg'],
-            ].map(([key, label, unit]) => (
-              <div key={key} className="bg-[var(--bg-hover)] rounded px-2.5 py-2">
-                <div className="text-[10px] uppercase text-[var(--text-muted)]">{label}</div>
-                <div className="text-sm font-semibold text-[var(--text-primary)] mono">
-                  {formatNumber(row[key])}{unit}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ))}
-    </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
 function PmPoshanSection({ pmPoshan }) {
-  const rows = [
+  const ALL_LEVELS = [
     ['primary', 'Primary'],
     ['upper_primary', 'Upper Primary'],
-  ].filter(([key]) => pmPoshan?.[key]);
+  ];
 
+  const rows = ALL_LEVELS.filter(([key]) => pmPoshan?.[key]);
   if (!rows.length) return null;
+
+  // Separate active rows from no_students rows
+  const activeRows = rows.filter(([key]) => pmPoshan[key].status !== 'no_students');
+  const emptyRows  = rows.filter(([key]) => pmPoshan[key].status === 'no_students');
 
   return (
     <Card>
@@ -298,40 +321,58 @@ function PmPoshanSection({ pmPoshan }) {
         <ShieldCheck size={15} className="text-[var(--accent)]" />
         <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">PM POSHAN Status</h2>
       </div>
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {rows.map(([key, label]) => {
-          const data = pmPoshan[key];
-          return (
-            <div key={key} className="border border-[var(--border)] rounded-[10px] p-4 bg-[var(--bg-surface)]">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold text-[var(--text-primary)]">{label}</div>
-                <Badge color={pmStatusColor(data.status)}>{String(data.status || '').replace('_', ' ')}</Badge>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <div className="text-xs text-[var(--text-muted)]">Calories</div>
-                  <div className="text-lg font-bold mono" style={{ color: adequacyColor(data.calorie_pct) }}>
-                    {formatNumber(data.calorie_pct, 0)}%
+
+      {activeRows.length > 0 && (
+        <>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {activeRows.map(([key, label]) => {
+              const data = pmPoshan[key];
+              return (
+                <div key={key} className="border border-[var(--border)] rounded-[10px] p-4 bg-[var(--bg-surface)]">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-semibold text-[var(--text-primary)]">{label}</div>
+                    <Badge color={pmStatusColor(data.status)}>{String(data.status || '').replace(/_/g, ' ')}</Badge>
                   </div>
-                  <div className="text-[11px] text-[var(--text-muted)]">
-                    {formatNumber(data.provided_calories)} / {formatNumber(data.target_calories)} kcal
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-xs text-[var(--text-muted)]">Calories</div>
+                      <div className="text-lg font-bold mono" style={{ color: adequacyColor(data.calorie_pct) }}>
+                        {formatNumber(data.calorie_pct, 0)}%
+                      </div>
+                      <div className="text-[11px] text-[var(--text-muted)]">
+                        {formatNumber(data.provided_calories)} / {formatNumber(data.target_calories)} kcal
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-[var(--text-muted)]">Protein</div>
+                      <div className="text-lg font-bold mono" style={{ color: adequacyColor(data.protein_pct) }}>
+                        {formatNumber(data.protein_pct, 0)}%
+                      </div>
+                      <div className="text-[11px] text-[var(--text-muted)]">
+                        {formatNumber(data.provided_protein)} / {formatNumber(data.target_protein)} g
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-[var(--text-muted)]">Protein</div>
-                  <div className="text-lg font-bold mono" style={{ color: adequacyColor(data.protein_pct) }}>
-                    {formatNumber(data.protein_pct, 0)}%
-                  </div>
-                  <div className="text-[11px] text-[var(--text-muted)]">
-                    {formatNumber(data.provided_protein)} / {formatNumber(data.target_protein)} g
-                  </div>
-                </div>
+              );
+            })}
+          </div>
+          <PmPoshanComparisonChart pmPoshan={pmPoshan} />
+        </>
+      )}
+
+      {emptyRows.length > 0 && (
+        <div className={`flex flex-col gap-2 ${activeRows.length > 0 ? 'mt-3' : ''}`}>
+          {emptyRows.map(([key, label]) => (
+            <div key={key} className="flex items-center gap-3 px-3 py-2.5 bg-[var(--bg-hover)] border border-[var(--border)] rounded-[10px]">
+              <div className="text-xs font-semibold text-[var(--text-muted)] w-24 flex-shrink-0">{label}</div>
+              <div className="text-xs text-[var(--text-muted)] italic">
+                Not applicable — no {label.toLowerCase()} classes set up yet. Assign a level to a class to enable this benchmark.
               </div>
             </div>
-          );
-        })}
-      </div>
-      <PmPoshanComparisonChart pmPoshan={pmPoshan} />
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
@@ -401,20 +442,17 @@ export default function MealDetailPage() {
   const { id } = useParams();
   const [meal, setMeal] = useState(null);
   const [ingredients, setIngredients] = useState([]);
-  const [distribution, setDistribution] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       getMealById(id),
-      getMealDistribution(id).catch(() => ({ data: { distribution: [] } })),
       getMealSummary(id).catch(() => ({ data: null })),
-    ]).then(([mealRes, distributionRes, summaryRes]) => {
+    ]).then(([mealRes, summaryRes]) => {
       const nextSummary = normaliseSummary(summaryRes.data);
       setMeal(mealRes.data.meal || summaryRes.data?.meal || null);
       setIngredients(mealRes.data.ingredients || []);
-      setDistribution(distributionRes.data.distribution || []);
       setSummary(nextSummary);
     }).catch(() => {
       setMeal(null);
@@ -425,26 +463,31 @@ export default function MealDetailPage() {
 
   const toast = useToast();
   const [editIngredients, setEditIngredients] = useState(null); // null = not editing
+  const [originalIngredientIds, setOriginalIngredientIds] = useState([]); // track what was on server before edit
   const [savingIngredients, setSavingIngredients] = useState(false);
 
-  const startEditing = () => setEditIngredients(
-    ingredients.map((i) => ({ ...i, ingredient_id: i.ingredient_id ?? i.id }))
-  );
+  const sameId = (a, b) => String(a) === String(b);
+
+  const startEditing = () => {
+    const current = ingredients.map((i) => ({ ...i, ingredient_id: i.ingredient_id ?? i.id }));
+    setOriginalIngredientIds(current.map((i) => i.ingredient_id));
+    setEditIngredients(current);
+  };
 
   const handleQtyChange = (ingredient_id, value) => {
     setEditIngredients((current) =>
-      current.map((i) => i.ingredient_id === ingredient_id ? { ...i, quantity_g: parseFloat(value) || 0 } : i)
+      current.map((i) => sameId(i.ingredient_id, ingredient_id) ? { ...i, quantity_g: parseFloat(value) || 0 } : i)
     );
   };
 
   const handleRemove = (ingredient_id) => {
-    setEditIngredients((current) => current.filter((i) => i.ingredient_id !== ingredient_id));
+    setEditIngredients((current) => current.filter((i) => !sameId(i.ingredient_id, ingredient_id)));
   };
 
   const handleAdd = (ingredient) => {
     setEditIngredients((current) => {
-      const exists = current.find((i) => i.ingredient_id === ingredient.ingredient_id);
-      if (exists) return current.map((i) => i.ingredient_id === ingredient.ingredient_id ? { ...i, quantity_g: ingredient.quantity_g } : i);
+      const exists = current.find((i) => sameId(i.ingredient_id, ingredient.ingredient_id));
+      if (exists) return current.map((i) => sameId(i.ingredient_id, ingredient.ingredient_id) ? { ...i, quantity_g: ingredient.quantity_g } : i);
       return [...current, ingredient];
     });
   };
@@ -456,25 +499,33 @@ export default function MealDetailPage() {
     }
     setSavingIngredients(true);
     try {
-      await addMealIngredients(id, editIngredients.map(({ ingredient_id, quantity_g }) => ({ ingredient_id, quantity_g })));
+      const keepPayload = editIngredients.map(({ ingredient_id, quantity_g }) => ({
+        ingredient_id: Number(ingredient_id),
+        quantity_g: Number(quantity_g) || 0,
+      }));
+      // Delete removed ingredients via the proper endpoint, then upsert the rest
+      const keptIds = new Set(keepPayload.map((i) => String(i.ingredient_id)));
+      const removedIds = originalIngredientIds.filter((origId) => !keptIds.has(String(origId)));
+      await Promise.all(removedIds.map((origId) => deleteMealIngredient(id, origId)));
+      await addMealIngredients(id, keepPayload);
       toast('Ingredients updated', 'success');
-      // Refresh
-      const [mealRes, distRes, sumRes] = await Promise.all([
+      // Refresh everything from server
+      const [mealRes, sumRes] = await Promise.all([
         getMealById(id),
-        getMealDistribution(id).catch(() => ({ data: { distribution: [] } })),
         getMealSummary(id).catch(() => ({ data: null })),
       ]);
       setIngredients(mealRes.data.ingredients || []);
-      setDistribution(distRes.data.distribution || []);
       setSummary(normaliseSummary(sumRes.data));
       setEditIngredients(null);
+      setOriginalIngredientIds([]);
     } catch (err) {
       toast(err.response?.data?.message || 'Failed to update ingredients', 'error');
     } finally {
       setSavingIngredients(false);
     }
   };
-  const locked = meal?.served_date ? !isToday(meal.served_date) : true;
+  // Use is_locked from backend summary; fall back to local date check if summary not yet loaded
+  const locked = summary != null ? summary.is_locked : (meal?.served_date ? !isToday(meal.served_date) : false);
   const nutrients = useMemo(() => breakdownArray(summary), [summary]);
   const insightNutrients = nutrients.filter((nutrient) => INSIGHT_KEYS.includes(nutrient.nutrient));
 
@@ -493,17 +544,19 @@ export default function MealDetailPage() {
               <h1 className="text-xl font-bold text-[var(--text-primary)]">{meal.name}</h1>
               {locked && (
                 <Badge color="muted" className="gap-1">
-                  <Lock size={10} /> Read-only
+                  <Lock size={10} /> Past meal
                 </Badge>
               )}
             </div>
             <p className="text-sm text-[var(--text-muted)]">
-              {new Date(meal.served_date).toLocaleDateString('en-IN', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
+              {meal.served_date
+                ? new Date(normalizeDate(meal.served_date) + 'T00:00:00').toLocaleDateString('en-IN', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })
+                : ''}
             </p>
           </div>
           {summary && (
@@ -634,7 +687,7 @@ export default function MealDetailPage() {
           <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">
             Automatic Distribution by Group
           </h2>
-          <DistributionSection distribution={distribution} />
+          <DistributionSection distribution={summary?.distribution ?? null} />
         </section>
       </div>
     </div>

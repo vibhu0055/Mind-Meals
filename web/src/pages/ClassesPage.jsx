@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getClasses, createClass, deleteClass, assignTeacherToClass } from '../api/classes';
+import { getClasses, createClass, updateClass, deleteClass, assignTeacherToClass } from '../api/classes';
 import { getTeachers } from '../api/teachers';
 import { useToast } from '../components/ui/Toast';
 import Button from '../components/ui/Button';
@@ -9,12 +9,8 @@ import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import { PageLoader, EmptyState } from '../components/ui/Spinner';
 import PageHeader from '../components/layout/PageHeader';
-import { BookOpen, Plus, Trash2, UserPlus } from 'lucide-react';
-import {
-  mergeClassAssignments,
-  removeTeacherAssignmentCache,
-  saveTeacherAssignmentCache,
-} from '../utils/teacherAssignmentCache';
+import { BookOpen, Pencil, Plus, Trash2, UserPlus, ArrowRightLeft } from 'lucide-react';
+
 
 function getAssignedTeacherId(classItem) {
   return (
@@ -29,7 +25,6 @@ function getAssignedTeacherId(classItem) {
 function getAssignedTeacherName(classItem, teachers) {
   const teacherId = getAssignedTeacherId(classItem);
   const teacher = teachers.find((t) => String(t.id) === String(teacherId));
-
   return (
     classItem.assigned_teacher_name ||
     classItem.teacher_name ||
@@ -40,36 +35,37 @@ function getAssignedTeacherName(classItem, teachers) {
   );
 }
 
-function getAssignPayload(data) {
-  return data?.mapping && typeof data.mapping === 'object' ? data.mapping : data;
-}
-
 export default function ClassesPage() {
   const toast = useToast();
-  const [classes, setClasses] = useState([]);
-  const [teachers, setTeachers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [classes, setClasses]       = useState([]);
+  const [teachers, setTeachers]     = useState([]);
+  const [loading, setLoading]       = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [assignTarget, setAssignTarget] = useState(null);
-  const [form, setForm] = useState({ name: '', section: '' });
+  const [form, setForm]             = useState({ name: '', section: '', level: '' });
   const [assignForm, setAssignForm] = useState({ teacher_id: '' });
+  const [showEdit, setShowEdit]     = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editForm, setEditForm]     = useState({ name: '', section: '', level: '' });
   const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors]         = useState({});
 
   const load = async () => {
     try {
       const [c, t] = await Promise.all([getClasses(), getTeachers()]);
-      const nextTeachers = t.data.teachers || [];
-      setTeachers(nextTeachers);
-      setClasses(mergeClassAssignments(c.data.classes || [], nextTeachers));
+      setTeachers(t.data.teachers || []);
+      setClasses(c.data.classes || []);
     } catch { toast('Failed to load data', 'error'); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
 
-  const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setErrors((er) => ({ ...er, [k]: '' })); };
+  const set = (k) => (e) => {
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+    setErrors((er) => ({ ...er, [k]: '' }));
+  };
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -79,7 +75,7 @@ export default function ClassesPage() {
       await createClass(form);
       toast('Class created!', 'success');
       setShowCreate(false);
-      setForm({ name: '', section: '' });
+      setForm({ name: '', section: '', level: '' });
       load();
     } catch (err) {
       toast(err.response?.data?.message || 'Failed', 'error');
@@ -91,7 +87,6 @@ export default function ClassesPage() {
     try {
       await deleteClass(id);
       toast('Class deleted', 'success');
-      removeTeacherAssignmentCache(id);
       setClasses((prev) => prev.filter((c) => c.id !== id));
     } catch { toast('Failed to delete', 'error'); }
   };
@@ -101,35 +96,38 @@ export default function ClassesPage() {
     if (!assignForm.teacher_id) return;
     setSubmitting(true);
     try {
-      const res = await assignTeacherToClass({ teacher_id: parseInt(assignForm.teacher_id), class_id: assignTarget.id });
-      const mapping = getAssignPayload(res.data);
-      const selectedTeacher = teachers.find((t) => String(t.id) === String(assignForm.teacher_id));
-      const nextAssignment = {
-        class_id: mapping.class_id || assignTarget.id,
-        class_name: mapping.class_name || assignTarget.name,
-        section: mapping.section || assignTarget.section || '',
-        teacher_id: mapping.teacher_id || assignForm.teacher_id,
-        teacher_name: mapping.teacher_name || selectedTeacher?.name || '',
-      };
-
-      saveTeacherAssignmentCache(nextAssignment);
+      await assignTeacherToClass({ teacher_id: parseInt(assignForm.teacher_id), class_id: assignTarget.id });
       toast('Teacher assigned!', 'success');
-      setClasses((prev) =>
-        prev.map((c) =>
-          String(c.id) === String(assignTarget.id)
-            ? {
-                ...c,
-                assigned_teacher_id: nextAssignment.teacher_id,
-                assigned_teacher_name: nextAssignment.teacher_name,
-              }
-            : c
-        )
-      );
       setShowAssign(false);
       setAssignForm({ teacher_id: '' });
       load();
     } catch (err) {
       toast(err.response?.data?.message || 'Failed', 'error');
+    } finally { setSubmitting(false); }
+  };
+
+  const openEdit = (c) => {
+    setEditTarget(c);
+    setEditForm({ name: c.name || '', section: c.section || '', level: c.level || '' });
+    setErrors({});
+    setShowEdit(true);
+  };
+
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    if (!editForm.name) { setErrors({ editName: 'Required' }); return; }
+    setSubmitting(true);
+    try {
+      await updateClass(editTarget.id, {
+        name: editForm.name,
+        section: editForm.section || undefined,
+        level: editForm.level || undefined,
+      });
+      toast('Class updated!', 'success');
+      setShowEdit(false);
+      load();
+    } catch (err) {
+      toast(err.response?.data?.message || 'Failed to update', 'error');
     } finally { setSubmitting(false); }
   };
 
@@ -144,45 +142,69 @@ export default function ClassesPage() {
       />
 
       {classes.length === 0 ? (
-        <EmptyState icon={BookOpen} title="No classes yet" description="Create your first class" action={<Button icon={Plus} onClick={() => setShowCreate(true)}>Create Class</Button>} />
+        <EmptyState
+          icon={BookOpen}
+          title="No classes yet"
+          description="Create your first class"
+          action={<Button icon={Plus} onClick={() => setShowCreate(true)}>Create Class</Button>}
+        />
       ) : (
         <div className="grid grid-cols-2 gap-3">
-          {classes.map((c) => {
-            const teacherName = getAssignedTeacherName(c, teachers);
+            {classes.map((c) => {
+              const teacherName = getAssignedTeacherName(c, teachers);
+              const isAssigned  = !!getAssignedTeacherId(c);
 
-            return (
-              <Card key={c.id}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--amber-dim)] flex items-center justify-center">
-                    <BookOpen size={18} className="text-[var(--amber)]" />
+              return (
+                <Card key={c.id}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--amber-dim)] flex items-center justify-center">
+                      <BookOpen size={18} className="text-[var(--amber)]" />
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={isAssigned ? ArrowRightLeft : UserPlus}
+                        onClick={() => {
+                          const teacherId = getAssignedTeacherId(c);
+                          setAssignTarget(c);
+                          setAssignForm({ teacher_id: teacherId ? String(teacherId) : '' });
+                          setShowAssign(true);
+                        }}
+                      >
+                        {isAssigned ? 'Reassign' : 'Assign'}
+                      </Button>
+                      <Button variant="secondary" size="sm" icon={Pencil} onClick={() => openEdit(c)} />
+                      <Button variant="danger" size="sm" icon={Trash2} onClick={() => handleDelete(c.id)} />
+                    </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={UserPlus}
-                      onClick={() => {
-                        const teacherId = getAssignedTeacherId(c);
-                        setAssignTarget(c);
-                        setAssignForm({ teacher_id: teacherId ? String(teacherId) : '' });
-                        setShowAssign(true);
-                      }}
-                    >
-                      Assign
-                    </Button>
-                    <Button variant="danger" size="sm" icon={Trash2} onClick={() => handleDelete(c.id)} />
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="text-sm font-semibold text-[var(--text-primary)]">{c.name}</div>
+                    {c.level && (
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                        c.level === 'primary'
+                          ? 'bg-[var(--blue-dim)] text-[var(--blue)] border-[rgba(59,130,246,0.3)]'
+                          : 'bg-[var(--purple-dim)] text-[var(--purple)] border-[rgba(168,85,247,0.3)]'
+                      }`}>
+                        {c.level === 'primary' ? 'Primary' : 'Upper Primary'}
+                      </span>
+                    )}
                   </div>
-                </div>
-                <div className="text-sm font-semibold text-[var(--text-primary)]">{c.name}</div>
-                {c.section && <div className="text-xs text-[var(--text-muted)] mt-0.5">Section {c.section}</div>}
-                <div className="text-xs text-[var(--text-muted)] mt-2">
-                  Teacher: <span className="text-[var(--text-secondary)]">{teacherName || 'Not assigned'}</span>
-                </div>
-                <div className="text-[11px] text-[var(--text-muted)] mt-2 font-mono">ID: {c.id}</div>
-              </Card>
-            );
-          })}
-        </div>
+                  {c.section && <div className="text-xs text-[var(--text-muted)] mt-0.5">Section {c.section}</div>}
+
+                  <div className="text-xs text-[var(--text-muted)] mt-2">
+                    Teacher:{' '}
+                    {teacherName
+                      ? <span className="text-[var(--text-secondary)] font-medium">{teacherName}</span>
+                      : <span className="italic">Not assigned</span>
+                    }
+                  </div>
+
+                </Card>
+              );
+            })}
+          </div>
       )}
 
       {/* Create modal */}
@@ -190,6 +212,14 @@ export default function ClassesPage() {
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
           <Input label="Class Name" placeholder="e.g. Class 5, Grade 3" value={form.name} onChange={set('name')} error={errors.name} />
           <Input label="Section (optional)" placeholder="e.g. A, B, C" value={form.section} onChange={set('section')} />
+          <Select label="Level (optional)" value={form.level} onChange={set('level')}>
+            <option value="">Not set</option>
+            <option value="primary">Primary</option>
+            <option value="upper_primary">Upper Primary</option>
+          </Select>
+          <div className="text-[11px] text-[var(--text-muted)] -mt-2">
+            Level is used to calculate PM POSHAN benchmarks for this class.
+          </div>
           <div className="flex gap-3 mt-1">
             <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)} type="button">Cancel</Button>
             <Button className="flex-1" loading={submitting} type="submit">Create</Button>
@@ -197,22 +227,82 @@ export default function ClassesPage() {
         </form>
       </Modal>
 
-      {/* Assign teacher modal */}
-      <Modal isOpen={showAssign} onClose={() => setShowAssign(false)} title={`Assign Teacher to ${assignTarget?.name}`}>
+      {/* Assign / Reassign teacher modal */}
+      <Modal
+        isOpen={showAssign}
+        onClose={() => { setShowAssign(false); setAssignForm({ teacher_id: '' }); }}
+        title={getAssignedTeacherId(assignTarget || {}) ? `Reassign Teacher — ${assignTarget?.name}` : `Assign Teacher — ${assignTarget?.name}`}
+      >
         <form onSubmit={handleAssign} className="flex flex-col gap-4">
+          {assignTarget && getAssignedTeacherId(assignTarget) && (
+            <div className="flex items-center gap-3 px-3 py-2.5 bg-[var(--bg-hover)] rounded-[10px] border border-[var(--border)]">
+              <div className="w-7 h-7 rounded-lg bg-[var(--blue-dim)] flex items-center justify-center flex-shrink-0">
+                <UserPlus size={13} className="text-[var(--blue)]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Currently assigned</div>
+                <div className="text-sm font-medium text-[var(--text-primary)] truncate">
+                  {getAssignedTeacherName(assignTarget, teachers)}
+                </div>
+              </div>
+              <ArrowRightLeft size={14} className="text-[var(--text-muted)] flex-shrink-0" />
+            </div>
+          )}
+
           <Select
-            label="Select Teacher"
+            label={getAssignedTeacherId(assignTarget || {}) ? 'Reassign to' : 'Select Teacher'}
             value={assignForm.teacher_id}
             onChange={(e) => setAssignForm({ teacher_id: e.target.value })}
           >
             <option value="">Choose a teacher...</option>
-            {teachers.map((t) => (
-              <option key={t.id} value={t.id}>{t.name} — {t.email}</option>
-            ))}
+            {teachers
+              .filter((t) => String(t.id) !== String(getAssignedTeacherId(assignTarget || {})))
+              .map((t) => (
+                <option key={t.id} value={t.id}>{t.name} — {t.email}</option>
+              ))
+            }
           </Select>
+
+          {assignTarget && getAssignedTeacherId(assignTarget) && (
+            <p className="text-xs text-[var(--text-muted)] -mt-1">
+              The current teacher will lose access to this class immediately after reassignment.
+            </p>
+          )}
+
           <div className="flex gap-3 mt-1">
-            <Button variant="secondary" className="flex-1" onClick={() => setShowAssign(false)} type="button">Cancel</Button>
-            <Button className="flex-1" loading={submitting} type="submit">Assign</Button>
+            <Button variant="secondary" className="flex-1" onClick={() => { setShowAssign(false); setAssignForm({ teacher_id: '' }); }} type="button">Cancel</Button>
+            <Button
+              className="flex-1"
+              loading={submitting}
+              disabled={!assignForm.teacher_id}
+              type="submit"
+            >
+              {getAssignedTeacherId(assignTarget || {}) ? 'Reassign' : 'Assign'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit class modal */}
+      <Modal isOpen={showEdit} onClose={() => setShowEdit(false)} title={`Edit Class — ${editTarget?.name}`}>
+        <form onSubmit={handleEdit} className="flex flex-col gap-4">
+          <Input label="Class Name" placeholder="e.g. Class 5, Grade 3" value={editForm.name}
+            onChange={(e) => { setEditForm((f) => ({ ...f, name: e.target.value })); setErrors((er) => ({ ...er, editName: '' })); }}
+            error={errors.editName} />
+          <Input label="Section (optional)" placeholder="e.g. A, B, C" value={editForm.section}
+            onChange={(e) => setEditForm((f) => ({ ...f, section: e.target.value }))} />
+          <Select label="Level" value={editForm.level}
+            onChange={(e) => setEditForm((f) => ({ ...f, level: e.target.value }))}>
+            <option value="">Not set</option>
+            <option value="primary">Primary</option>
+            <option value="upper_primary">Upper Primary</option>
+          </Select>
+          <div className="text-[11px] text-[var(--text-muted)] -mt-2">
+            Setting a level enables PM POSHAN benchmarks for students in this class.
+          </div>
+          <div className="flex gap-3 mt-1">
+            <Button variant="secondary" className="flex-1" onClick={() => setShowEdit(false)} type="button">Cancel</Button>
+            <Button className="flex-1" loading={submitting} type="submit">Save Changes</Button>
           </div>
         </form>
       </Modal>

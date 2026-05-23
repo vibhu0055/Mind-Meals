@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getStudentById } from '../api/students';
+import { getClasses } from '../api/classes';
 import { getHealthRecordsByStudent } from '../api/health';
 import { getStudentReports } from '../api/nutrition';
 import { getMeals } from '../api/meals';
@@ -289,9 +290,18 @@ export default function StudentDetailPage() {
       getMeals().catch(() => ({
         data: { meals: [] },
       })),
+
+      getClasses().catch(() => ({ data: { classes: [] } })),
     ])
-      .then(([s, h, n, m]) => {
-        setStudent(s.data.student);
+      .then(([s, h, n, m, c]) => {
+        const classList = c.data.classes || [];
+        const studentData = s.data.student;
+        // enrich with class_name if not already present
+        if (studentData && !studentData.class_name && studentData.class_id) {
+          const matched = classList.find(cl => String(cl.id) === String(studentData.class_id));
+          if (matched) studentData.class_name = matched.name;
+        }
+        setStudent(studentData);
 
         const normalizedRecords = (h.data.records || []).map(
           (r) => ({
@@ -437,9 +447,9 @@ export default function StudentDetailPage() {
             </span>
 
             <span>
-              Class ID{' '}
-              <strong className="text-[var(--text-primary)] mono">
-                {student.class_id}
+              Class{' '}
+              <strong className="text-[var(--text-primary)]">
+                {student.class_name || '—'}
               </strong>
             </span>
 

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getStudents, getStudentsByClass, addStudent, deleteStudent } from '../api/students';
 import { getClasses } from '../api/classes';
-import { getLatestHealthRecord } from '../api/health';
 import { useAuth } from '../features/auth/AuthContext';
 import { useToast } from '../components/ui/Toast';
 import Button from '../components/ui/Button';
@@ -32,79 +31,52 @@ function bmiColor(category) {
   return 'muted';
 }
 
-function getHealthRecord(data) {
-  const record =
-    data?.record ||
-    data?.health_record ||
-    data?.latest ||
-    data ||
-    null;
-
-  if (!record) return null;
-
-  return {
-    ...record,
-
-    height_cm:
-      record.height_cm != null
-        ? Number(record.height_cm)
-        : null,
-
-    weight_kg:
-      record.weight_kg != null
-        ? Number(record.weight_kg)
-        : null,
-
-    muac_cm:
-      record.muac_cm != null
-        ? Number(record.muac_cm)
-        : null,
-
-    bmi:
-      record.bmi != null
-        ? Number(record.bmi)
-        : null,
-  };
-}
 
 export default function StudentsPage() {
   const { isTeacher } = useAuth();
   const toast = useToast();
   const [students, setStudents] = useState([]);
+  const [total, setTotal] = useState(0);
   const [classes, setClasses] = useState([]);
-  const [latestHealthByStudent, setLatestHealthByStudent] = useState({});
   const [loading, setLoading] = useState(true);
   const [filterClass, setFilterClass] = useState('');
+  const [filterBmi, setFilterBmi]     = useState('');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: '', age: '', gender: 'male', class_id: '' });
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const load = async (class_id = '') => {
+  const loadClasses = async () => {
     try {
-      const [s, c] = await Promise.all([
-        class_id ? getStudentsByClass(class_id) : getStudents(),
-        getClasses(),
-      ]);
-      const nextStudents = s.data.students || [];
-      setStudents(nextStudents);
+      const c = await getClasses();
       setClasses(c.data.classes || []);
+    } catch { toast('Failed to load classes', 'error'); }
+  };
 
-      const healthResults = await Promise.all(
-        nextStudents.map(async (student) => {
-          const res = await getLatestHealthRecord(student.id).catch(() => null);
-          return [student.id, res ? getHealthRecord(res.data) : null];
-        })
-      );
-      setLatestHealthByStudent(Object.fromEntries(healthResults));
+  const loadStudents = async (class_id, bmi_category) => {
+    try {
+      const params = {};
+      if (bmi_category) params.bmi_category = bmi_category;
+      const s = class_id
+        ? await getStudentsByClass(class_id, params)
+        : await getStudents(params);
+      setStudents((s.data.students || []).map((stu) => ({
+        ...stu,
+        class_name: stu.class_name || classes.find(c => String(c.id) === String(stu.class_id))?.name || '—',
+      })));
+      setTotal(s.data.total ?? (s.data.students || []).length);
     } catch {
-      toast('Failed to load', 'error');
+      toast('Failed to load students', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(filterClass); }, [filterClass]);
+  // Fetch classes once on mount
+  useEffect(() => { loadClasses(); }, []);
+
+  // Re-fetch students whenever filters change
+  useEffect(() => { loadStudents(filterClass, filterBmi); }, [filterClass, filterBmi]);
 
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -129,7 +101,7 @@ export default function StudentsPage() {
       toast('Student added!', 'success');
       setShowModal(false);
       setForm({ name: '', age: '', gender: 'male', class_id: '' });
-      load(filterClass);
+      loadStudents(filterClass, filterBmi);
     } catch (err) {
       toast(err.response?.data?.message || 'Failed', 'error');
     } finally {
@@ -143,11 +115,6 @@ export default function StudentsPage() {
       await deleteStudent(id);
       toast('Student deleted', 'success');
       setStudents((prev) => prev.filter((s) => s.id !== id));
-      setLatestHealthByStudent((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
     } catch {
       toast('Failed', 'error');
     }
@@ -159,7 +126,7 @@ export default function StudentsPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="Students"
-        description={`${students.length} student${students.length !== 1 ? 's' : ''}${filterClass ? ' in selected class' : ''}`}
+        description={`${total} student${total !== 1 ? 's' : ''}${filterClass ? ' in selected class' : ''}` + (filterBmi ? ` · ${filterBmi}` : '')}
         action={
           isTeacher && (
             <Button icon={Plus} onClick={() => setShowModal(true)}>Add Student</Button>
@@ -178,6 +145,17 @@ export default function StudentsPage() {
             <option key={c.id} value={c.id}>{c.name}{c.section ? ` - ${c.section}` : ''}</option>
           ))}
         </Select>
+        <Select
+          className="w-48"
+          value={filterBmi}
+          onChange={(e) => setFilterBmi(e.target.value)}
+        >
+          <option value="">All BMI categories</option>
+          <option value="Underweight">Underweight</option>
+          <option value="Normal">Normal</option>
+          <option value="Overweight">Overweight</option>
+          <option value="Obese">Obese</option>
+        </Select>
       </div>
 
       {students.length === 0 ? (
@@ -190,12 +168,8 @@ export default function StudentsPage() {
       ) : (
         <div className="grid gap-2">
           {students.map((s) => {
-            const latestHealth = latestHealthByStudent[s.id];
-            const bmi =
-              latestHealth?.bmi != null
-                ? Number(latestHealth.bmi)
-                : null;
-            const bmiCategory = latestHealth?.bmi_category || latestHealth?.category;
+            const bmi = s.bmi != null ? Number(s.bmi) : null;
+            const bmiCategory = s.bmi_category || null;
 
             return (
               <Card key={s.id} className="flex items-center justify-between gap-4">
@@ -208,9 +182,25 @@ export default function StudentsPage() {
                       <span className="text-sm font-semibold text-[var(--text-primary)]">{s.name}</span>
                       <Badge color={genderColor[s.gender] || 'muted'}>{s.gender}</Badge>
                     </div>
-                    <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                      Age {s.age} - {s.class_name || `Class ID ${s.class_id}`}
+                    <div className="text-xs text-[var(--text-muted)] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span>Age {s.age}</span>
+                      <span>·</span>
+                      <span>{s.class_name || '—'}</span>
+                      {s.class_level && (
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                          s.class_level === 'primary'
+                            ? 'bg-[var(--blue-dim)] text-[var(--blue)]'
+                            : 'bg-[var(--purple-dim)] text-[var(--purple)]'
+                        }`}>
+                          {s.class_level === 'primary' ? 'Primary' : 'Upper Primary'}
+                        </span>
+                      )}
                     </div>
+                    {s.bmi_recorded_at && (
+                      <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                        BMI recorded {new Date(s.bmi_recorded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                    )}
                   </div>
                 </div>
 

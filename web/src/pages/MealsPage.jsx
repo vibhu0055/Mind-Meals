@@ -5,7 +5,6 @@ import {
   createMeal,
   deleteMeal,
   updateMeal,
-  getIngredientNutrition,
   getIngredients,
   getMeals,
 } from '../api/meals';
@@ -18,7 +17,253 @@ import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import { PageLoader, EmptyState, Spinner } from '../components/ui/Spinner';
 import PageHeader from '../components/layout/PageHeader';
-import { Eye, Leaf, Lock, Pencil, Plus, Search, Trash2, UtensilsCrossed, X, Zap } from 'lucide-react';
+import { Eye, Leaf, Lock, Pencil, Plus, Search, Trash2, UtensilsCrossed, X, Zap, FlaskConical } from 'lucide-react';
+
+const DEFAULT_FOODS = [
+  'rice raw milled',
+  'wheat flour atta',
+  'jowar',
+  'bajra',
+  'ragi',
+  'toor dal',
+  'moong dal',
+  'chana dal',
+  'milk whole cow',
+  'curd',
+  'egg poultry whole raw',
+  'potato',
+  'onion',
+  'banana',
+  'peanut',
+];
+
+function NutrientReferenceTable() {
+  const [search, setSearch] = useState('');
+  const [foods, setFoods] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const debounceRef = useRef(null);
+
+  const loadFoods = async (searchTerm = '') => {
+    setLoading(true);
+
+    try {
+      const res = await getIngredients({
+        search: searchTerm,
+        limit: 50,
+      });
+
+      setFoods(res.data.ingredients || res.data || []);
+    } catch {
+      setFoods([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDefaultFoods = async () => {
+    setLoading(true);
+
+    try {
+      const responses = await Promise.all(
+        DEFAULT_FOODS.map((food) =>
+          getIngredients({
+            search: food,
+            limit: 1,
+          }),
+        ),
+      );
+
+      const items = responses
+        .map((res) => {
+          const data = res.data.ingredients || res.data || [];
+          return data[0];
+        })
+        .filter(Boolean);
+
+      setFoods(items);
+    } catch {
+      setFoods([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDefaultFoods();
+  }, []);
+
+  const handleSearch = (event) => {
+    const value = event.target.value;
+
+    setSearch(value);
+
+    clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(() => {
+      if (!value.trim()) {
+        loadDefaultFoods();
+        return;
+      }
+
+      loadFoods(value);
+    }, 400);
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden">
+
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
+        <div className="w-7 h-7 rounded-lg bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
+          <FlaskConical size={14} className="text-[var(--accent)]" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-[var(--text-primary)]">
+            Nutrient Reference
+          </div>
+
+          <div className="text-[10px] text-[var(--text-muted)]">
+            Per 100g
+          </div>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="p-3 border-b border-[var(--border)]">
+        <Input
+          placeholder="Search food..."
+          value={search}
+          onChange={handleSearch}
+          icon={Search}
+        />
+      </div>
+
+      {/* Table header */}
+      <div className="
+        grid
+        grid-cols-[2fr_repeat(6,minmax(55px,1fr))]
+        gap-0
+        px-3
+        py-2
+        bg-[var(--bg-hover)]
+        border-b
+        border-[var(--border)]
+      ">
+        {['Food', 'kcal', 'Pro', 'Carb', 'Fat', 'Fe', 'Ca'].map((h, i) => (
+          <div
+            key={h}
+            className={`
+              text-[10px]
+              font-semibold
+              uppercase
+              tracking-wide
+              text-[var(--text-muted)]
+              ${i === 0 ? '' : 'text-right'}
+            `}
+          >
+            {h}
+          </div>
+        ))}
+      </div>
+
+      {/* Rows */}
+      <div className="flex-1 overflow-y-auto">
+
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Spinner size={18} />
+          </div>
+        ) : foods.length === 0 ? (
+          <div className="text-xs text-[var(--text-muted)] text-center py-8">
+            No foods found
+          </div>
+        ) : (
+          foods.map((food, i) => (
+            <div
+              key={food.id}
+              className={`
+                grid
+                grid-cols-[2fr_repeat(6,minmax(55px,1fr))]
+                gap-0
+                px-3
+                py-2
+                transition-colors
+                hover:bg-[var(--accent-dim)]
+                ${i % 2 === 0 ? '' : 'bg-[var(--bg-hover)]'}
+              `}
+            >
+              {/* Food */}
+              <div className="truncate pr-2">
+                <div className="text-[11px] font-medium text-[var(--text-primary)] truncate">
+                  {ingredientName(food)}
+                </div>
+
+                {ingredientCategory(food) && (
+                  <div className="text-[9px] text-[var(--text-muted)] truncate">
+                    {ingredientCategory(food)}
+                  </div>
+                )}
+              </div>
+
+              {/* kcal */}
+              <div className="text-[11px] text-right mono text-[var(--amber)]">
+                {food.calories_per_100g ?? '-'}
+              </div>
+
+              {/* protein */}
+              <div className="text-[11px] text-right mono text-[var(--blue)]">
+                {food.protein_per_100g ?? '-'}
+              </div>
+
+              {/* carbs */}
+              <div className="text-[11px] text-right mono text-[var(--text-secondary)]">
+                {food.carbs_per_100g ?? '-'}
+              </div>
+
+              {/* fat */}
+              <div className="text-[11px] text-right mono text-[var(--text-muted)]">
+                {food.fat_per_100g ?? '-'}
+              </div>
+
+              {/* iron */}
+              <div className="text-[11px] text-right mono text-[var(--text-muted)]">
+                {food.iron_mg_per_100g ?? '-'}
+              </div>
+
+              {/* calcium */}
+              <div className="text-[11px] text-right mono text-[var(--text-muted)]">
+                {food.calcium_mg_per_100g ?? '-'}
+              </div>
+            </div>
+          ))
+        )}
+
+      </div>
+
+      {/* Legend */}
+      <div className="px-3 py-2 border-t border-[var(--border)] flex flex-wrap gap-x-3 gap-y-1">
+        {[
+          ['kcal', 'Calories'],
+          ['Pro', 'Protein (g)'],
+          ['Carb', 'Carbs (g)'],
+          ['Fat', 'Fat (g)'],
+          ['Fe', 'Iron (mg)'],
+          ['Ca', 'Calcium (mg)'],
+        ].map(([short, full]) => (
+          <span
+            key={short}
+            className="text-[9px] text-[var(--text-muted)]"
+          >
+            <span className="font-semibold">{short}</span> = {full}
+          </span>
+        ))}
+      </div>
+
+    </div>
+  );
+}
 
 const getISTDate = () => {
   return new Intl.DateTimeFormat('en-CA', {
@@ -146,19 +391,11 @@ function StepIngredients({ ingredients, setIngredients }) {
     const grams = parseFloat(qty[ingredient.id] || 100);
     if (!grams || grams <= 0) return;
 
-    let nutrition = {};
-    try {
-      const res = await getIngredientNutrition(ingredient.id);
-      nutrition = res.data || {};
-    } catch {
-      nutrition = {};
-    }
 
     setIngredients((current) => {
       const existing = current.find((item) => item.ingredient_id === ingredient.id);
       const next = {
         ...ingredient,
-        ...nutrition,
         ingredient_id: ingredient.id,
         quantity_g: grams,
         display_name: ingredientName(ingredient),
@@ -441,77 +678,87 @@ export default function MealsPage() {
         }
       />
 
-      {meals.length === 0 ? (
-        <EmptyState
-          icon={UtensilsCrossed}
-          title="No meals yet"
-          description={canManageMeals ? 'Create your first meal to start tracking nutrition' : 'No meals have been logged yet'}
-          action={
-            canManageMeals && (
-              <Button icon={Plus} onClick={() => { resetModal(); setShowModal(true); }}>
-                Create Meal
-              </Button>
-            )
-          }
-        />
-      ) : (
-        <div className="grid gap-3">
-          {meals.map((meal) => {
-            const locked = !isToday(meal.served_date);
-            
-            
-            return (
-              <Card key={meal.id} className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
-                  <UtensilsCrossed size={18} className="text-[var(--accent)]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold text-[var(--text-primary)] truncate">{meal.name}</span>
-                    {locked && (
-                      <Badge color="muted" className="gap-1">
-                        <Lock size={10} /> Locked
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-xs text-[var(--text-muted)]">
-                    {parseLocalDate(meal.served_date)?.toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Link to={`/meals/${meal.id}`}>
-                    <Button variant="secondary" size="sm" icon={Eye}>
-                      View
-                    </Button>
-                  </Link>
-                  {canManageMeals && (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={Zap}
-                        onClick={() => navigate(`/nutrition?meal_id=${meal.id}`)}
-                      >
-                        Analyze
-                      </Button>
-                      {!locked && (
+      <div className="flex gap-5 items-start">
+        {/* ── Left: meals list ── */}
+        <div className="flex-1 min-w-0">
+          {meals.length === 0 ? (
+            <EmptyState
+              icon={UtensilsCrossed}
+              title="No meals yet"
+              description={canManageMeals ? 'Create your first meal to start tracking nutrition' : 'No meals have been logged yet'}
+              action={
+                canManageMeals && (
+                  <Button icon={Plus} onClick={() => { resetModal(); setShowModal(true); }}>
+                    Create Meal
+                  </Button>
+                )
+              }
+            />
+          ) : (
+            <div className="grid gap-3">
+              {meals.map((meal) => {
+                const locked = !isToday(meal.served_date);
+
+
+                return (
+                  <Card key={meal.id} className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
+                      <UtensilsCrossed size={18} className="text-[var(--accent)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-[var(--text-primary)] truncate">{meal.name}</span>
+                        {locked && (
+                          <Badge color="muted" className="gap-1">
+                            <Lock size={10} /> Locked
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-xs text-[var(--text-muted)]">
+                        {parseLocalDate(meal.served_date)?.toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link to={`/meals/${meal.id}`}>
+                        <Button variant="secondary" size="sm" icon={Eye}>
+                          View
+                        </Button>
+                      </Link>
+                      {canManageMeals && (
                         <>
-                          <Button variant="secondary" size="sm" icon={Pencil} onClick={() => handleEditOpen(meal)} />
-                          <Button variant="danger" size="sm" icon={Trash2} onClick={() => handleDelete(meal)} />
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={Zap}
+                            onClick={() => navigate(`/nutrition?meal_id=${meal.id}`)}
+                          >
+                            Analyze
+                          </Button>
+                          {!locked && (
+                            <>
+                              <Button variant="secondary" size="sm" icon={Pencil} onClick={() => handleEditOpen(meal)} />
+                              <Button variant="danger" size="sm" icon={Trash2} onClick={() => handleDelete(meal)} />
+                            </>
+                          )}
                         </>
                       )}
-                    </>
-                  )}
-                </div>
-              </Card>
-            );
-          })}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>{/* end left col */}
+
+        {/* ── Right: nutrient reference table ── */}
+        <div className="w-120 flex-shrink-0 sticky top-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+          <NutrientReferenceTable />
         </div>
-      )}
+      </div>{/* end two-col */}
 
       <Modal
         isOpen={showModal}

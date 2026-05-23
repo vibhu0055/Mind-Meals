@@ -2,15 +2,16 @@
 @import "tailwindcss";
 
 :root {
-  --bg-base: #0d0f14;
-  --bg-surface: #13161e;
-  --bg-card: #181c26;
-  --bg-hover: #1e2330;
-  --border: #252a38;
-  --border-soft: #1e2330;
-  --text-primary: #e8eaf0;
-  --text-secondary: #8891a8;
-  --text-muted: #535c73;
+  color-scheme: dark;
+  --bg-base: #171b22;
+  --bg-surface: #202632;
+  --bg-card: #252c39;
+  --bg-hover: #303849;
+  --border: #3b4558;
+  --border-soft: #313a4b;
+  --text-primary: #f4f6fb;
+  --text-secondary: #c4ccd9;
+  --text-muted: #98a3b6;
   --accent: #4ade80;
   --accent-dim: rgba(74, 222, 128, 0.12);
   --accent-border: rgba(74, 222, 128, 0.3);
@@ -25,32 +26,40 @@
   --purple-dim: rgba(167, 139, 250, 0.12);
   --radius: 10px;
   --radius-lg: 16px;
-  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow: 0 4px 24px rgba(0,0,0,0.26);
 }
 
 :root[data-theme="light"] {
-  --bg-base: #f6f8fb;
-  --bg-surface: #ffffff;
+  color-scheme: light;
+
+  --bg-base: #e2ede8;
+  --bg-surface: #e2ede8;
   --bg-card: #ffffff;
-  --bg-hover: #eef3f7;
-  --border: #dce3ea;
-  --border-soft: #e8edf2;
-  --text-primary: #17212f;
-  --text-secondary: #526173;
-  --text-muted: #8390a2;
-  --accent: #16a34a;
-  --accent-dim: rgba(22, 163, 74, 0.12);
-  --accent-border: rgba(22, 163, 74, 0.28);
-  --accent-glow: rgba(22, 163, 74, 0.16);
-  --amber: #b7791f;
-  --amber-dim: rgba(183, 121, 31, 0.12);
-  --blue: #2563eb;
-  --blue-dim: rgba(37, 99, 235, 0.12);
-  --red: #dc2626;
-  --red-dim: rgba(220, 38, 38, 0.1);
-  --purple: #7c3aed;
-  --purple-dim: rgba(124, 58, 237, 0.12);
-  --shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+  --bg-hover: #eefcf4;
+
+  --border: #e6eaf2;
+  --border-soft: #f1f5f9;
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+
+  --accent: #22c55e;
+  --accent-dim: rgba(34, 197, 94, 0.12);
+  --accent-border: rgba(34, 197, 94, 0.25);
+  --accent-glow: rgba(34, 197, 94, 0.2);
+
+  --blue: #3b82f6;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --purple: #8b5cf6;
+
+  --radius: 16px;
+  --radius-lg: 22px;
+
+  --shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 12px 30px rgba(0,0,0,0.08);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

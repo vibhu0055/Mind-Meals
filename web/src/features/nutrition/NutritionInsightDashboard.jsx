@@ -252,7 +252,7 @@ export default function NutritionInsightDashboard({ report, studentName, mealNam
       <EmptyState
         icon={UtensilsCrossed}
         title="No nutrient data in this report"
-        description="The report was generated but contains no nutrient breakdown. Ensure the meal has ingredients and assigned class groups."
+        description="The report was generated but contains no nutrient breakdown. Ensure the meal has ingredients added."
       />
     );
   }

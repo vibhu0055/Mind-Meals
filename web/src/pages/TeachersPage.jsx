@@ -9,7 +9,7 @@ import Modal from '../components/ui/Modal';
 import { PageLoader, EmptyState } from '../components/ui/Spinner';
 import PageHeader from '../components/layout/PageHeader';
 import { UserSquare2, Plus, Trash2, UtensilsCrossed, Phone, Mail } from 'lucide-react';
-import { mergeTeacherAssignments } from '../utils/teacherAssignmentCache';
+
 
 function getClassLabel(c) {
   if (typeof c === 'string') return c;
@@ -46,7 +46,7 @@ export default function TeachersPage() {
   const load = async () => {
     try {
       const teacherRes = await getTeachers();
-      setTeachers(mergeTeacherAssignments(teacherRes.data.teachers || []));
+      setTeachers(teacherRes.data.teachers || []);
     } catch { toast('Failed to load teachers', 'error'); }
     finally { setLoading(false); }
   };
