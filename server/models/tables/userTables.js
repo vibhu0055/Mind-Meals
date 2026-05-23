@@ -34,10 +34,11 @@ export const userTables = async () => {
     // 3. CLASSES
     await pool.query(`
       CREATE TABLE IF NOT EXISTS classes (
-        id SERIAL PRIMARY KEY,
+        id        SERIAL PRIMARY KEY,
         school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-        name VARCHAR(50) NOT NULL,
-        section VARCHAR(10),
+        name      VARCHAR(50) NOT NULL,
+        section   VARCHAR(10),
+        level     VARCHAR(20) CHECK (level IN ('primary', 'upper_primary')),
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE (school_id, name, section)
       );

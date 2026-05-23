@@ -62,23 +62,59 @@ export const addStudent = async (req, res) => {
 export const getStudents = async (req, res) => {
   try {
     const { school_id } = req.user;
+    const { bmi_category } = req.query;
+
+    // Valid BMI categories
+    const VALID_BMI = ['Underweight', 'Normal', 'Overweight', 'Obese'];
+    if (bmi_category && !VALID_BMI.includes(bmi_category)) {
+      return res.status(400).json({
+        message: `Invalid bmi_category. Must be one of: ${VALID_BMI.join(', ')}`
+      });
+    }
+
+    const params = [school_id];
+    // When filtering by BMI, use JOIN LATERAL (excludes students with no health record).
+    // Without filter, use LEFT JOIN LATERAL (includes all students, hr.* is null if no record).
+    const lateralJoin = bmi_category ? 'JOIN' : 'LEFT JOIN';
+    let bmiFilter = '';
+    if (bmi_category) {
+      params.push(bmi_category);
+      bmiFilter = `AND hr.bmi_category = $${params.length}`;
+    }
 
     const result = await pool.query(
-      `SELECT s.*, c.name AS class_name
+      `SELECT
+         s.*,
+         c.name        AS class_name,
+         c.level       AS class_level,
+         hr.bmi        AS bmi,
+         hr.bmi_category,
+         hr.height_cm,
+         hr.weight_kg,
+         hr.recorded_at AS bmi_recorded_at
        FROM students s
        LEFT JOIN classes c ON s.class_id = c.id
-       WHERE s.school_id = $1
+       ${lateralJoin} LATERAL (
+         SELECT bmi, bmi_category, height_cm, weight_kg, recorded_at
+         FROM health_records
+         WHERE student_id = s.id
+         ORDER BY recorded_at DESC, id DESC
+         LIMIT 1
+       ) hr ON true
+       WHERE s.school_id = $1 ${bmiFilter}
        ORDER BY s.id DESC`,
-      [school_id]
+      params
     );
 
     return res.status(200).json({
-      students: result.rows
+      students:    result.rows,
+      total:       result.rows.length,
+      bmi_filter:  bmi_category || null,
     });
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -89,22 +125,54 @@ export const getStudents = async (req, res) => {
 export const getStudentsByClass = async (req, res) => {
   try {
     const { school_id } = req.user;
-    const { class_id } = req.params;
+    const { class_id }  = req.params;
+    const { bmi_category } = req.query;
+
+    const VALID_BMI = ['Underweight', 'Normal', 'Overweight', 'Obese'];
+    if (bmi_category && !VALID_BMI.includes(bmi_category)) {
+      return res.status(400).json({
+        message: `Invalid bmi_category. Must be one of: ${VALID_BMI.join(', ')}`
+      });
+    }
+
+    const params = [school_id, class_id];
+    const lateralJoin = bmi_category ? 'JOIN' : 'LEFT JOIN';
+    let bmiFilter = '';
+    if (bmi_category) {
+      params.push(bmi_category);
+      bmiFilter = `AND hr.bmi_category = $${params.length}`;
+    }
 
     const result = await pool.query(
-      `SELECT * FROM students
-       WHERE school_id = $1 AND class_id = $2
-       ORDER BY id DESC`,
-      [school_id, class_id]
+      `SELECT
+         s.*,
+         hr.bmi,
+         hr.bmi_category,
+         hr.height_cm,
+         hr.weight_kg,
+         hr.recorded_at AS bmi_recorded_at
+       FROM students s
+       ${lateralJoin} LATERAL (
+         SELECT bmi, bmi_category, height_cm, weight_kg, recorded_at
+         FROM health_records
+         WHERE student_id = s.id
+         ORDER BY recorded_at DESC, id DESC
+         LIMIT 1
+       ) hr ON true
+       WHERE s.school_id = $1 AND s.class_id = $2 ${bmiFilter}
+       ORDER BY s.id DESC`,
+      params
     );
 
     return res.status(200).json({
-      students: result.rows
+      students:   result.rows,
+      total:      result.rows.length,
+      bmi_filter: bmi_category || null,
     });
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 

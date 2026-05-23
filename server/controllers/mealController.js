@@ -7,7 +7,6 @@
 import pool from '../database/database.js';
 import {
   calculateMealNutrients,
-  getStudentCountsByGroup,
   computeDistributionByRda,
   saveDistribution,
   computeMealSummary,
@@ -26,6 +25,18 @@ const isToday = async (served_date, db) => {
   );
   const today = res.rows[0].today;
   return dateStr === today;
+};
+
+// ── Helper: is a meal locked? (served_date is in the past) ───
+// Locked meals use only their saved distribution — live student
+// data is never re-queried, so adding/removing students later
+// does not affect past meal summaries.
+const isMealLocked = async (served_date, db) => {
+  const res = await db.query(
+    `SELECT ($1::date < (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date) AS is_locked`,
+    [served_date]
+  );
+  return res.rows[0].is_locked;
 };
 
 // =============================================================
@@ -303,15 +314,21 @@ export const addMealIngredients = async (req, res) => {
 
     await client.query('COMMIT');
 
-    // Auto-recalculate distribution if groups exist
+    // Auto-recalculate distribution if groups exist AND meal is not locked
     try {
-      const groupCheck = await pool.query(
-        `SELECT COUNT(*) FROM class_groups WHERE school_id = $1`, [school_id]
+      const mealRow = await pool.query(
+        `SELECT served_date FROM meals WHERE id = $1`, [meal_id]
       );
-      if (parseInt(groupCheck.rows[0].count) > 0) {
-        const totalNutrients = await calculateMealNutrients(meal_id);
-        const distribution   = await computeDistributionByRda(totalNutrients, school_id);
-        await saveDistribution(meal_id, distribution);
+      const locked = await isMealLocked(mealRow.rows[0].served_date, pool);
+      if (!locked) {
+        const studentCount = await pool.query(
+          `SELECT COUNT(*) FROM students WHERE school_id = $1`, [school_id]
+        );
+        if (parseInt(studentCount.rows[0].count) > 0) {
+          const totalNutrients = await calculateMealNutrients(meal_id);
+          const distribution   = await computeDistributionByRda(totalNutrients, school_id);
+          await saveDistribution(meal_id, distribution);
+        }
       }
     } catch (recalcErr) {
       console.warn('Auto-recalc warning:', recalcErr.message);
@@ -357,11 +374,18 @@ export const distributeMeal = async (req, res) => {
       return res.status(400).json({ message: 'Add ingredients to the meal before distributing' });
     }
 
-    const groupCheck = await pool.query(
-      `SELECT COUNT(*) FROM class_groups WHERE school_id = $1`, [school_id]
+    const studentCheck = await pool.query(
+      `SELECT COUNT(*) FROM students WHERE school_id = $1`, [school_id]
     );
-    if (parseInt(groupCheck.rows[0].count) === 0) {
-      return res.status(400).json({ message: 'No class-group mappings found. Assign classes first.' });
+    if (parseInt(studentCheck.rows[0].count) === 0) {
+      return res.status(400).json({ message: 'No students found for this school. Add students first.' });
+    }
+
+    const locked = await isMealLocked(mealCheck.rows[0].served_date, pool);
+    if (locked) {
+      return res.status(403).json({
+        message: 'This meal is locked (past date). Distribution cannot be recomputed to preserve historical accuracy.'
+      });
     }
 
     const totalNutrients = await calculateMealNutrients(meal_id);
@@ -402,25 +426,29 @@ export const getMealDistribution = async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT * FROM meal_distributions WHERE meal_id = $1 ORDER BY group_label ASC`,
+      `SELECT * FROM meal_distributions WHERE meal_id = $1`,
       [meal_id]
     );
 
-    // Auto-compute if not yet run (ingredients exist + groups configured)
+    // Auto-compute if not yet run (ingredients exist + groups configured + meal not locked)
     if (result.rows.length === 0) {
+      const locked = await isMealLocked(mealCheck.rows[0].served_date, pool);
+      if (locked) {
+        return res.status(400).json({ message: 'This meal has no saved distribution and is now locked (past date).' });
+      }
       const ingCount = await pool.query(
         `SELECT COUNT(*) FROM meal_ingredients WHERE meal_id = $1`, [meal_id]
       );
-      const groupCount = await pool.query(
-        `SELECT COUNT(*) FROM class_groups WHERE school_id = $1`, [school_id]
+      const studentCount = await pool.query(
+        `SELECT COUNT(*) FROM students WHERE school_id = $1`, [school_id]
       );
       if (parseInt(ingCount.rows[0].count) === 0) {
         return res.status(400).json({ message: 'No ingredients added to this meal yet.' });
       }
-      if (parseInt(groupCount.rows[0].count) === 0) {
-        return res.status(400).json({ message: 'No class-group mappings found. Assign classes first.' });
+      if (parseInt(studentCount.rows[0].count) === 0) {
+        return res.status(400).json({ message: 'No students found for this school. Add students first.' });
       }
-      // Run distribution now
+      // Run distribution now and save it
       const totalsNow    = await calculateMealNutrients(meal_id);
       const distNow      = await computeDistributionByRda(totalsNow, school_id);
       await saveDistribution(meal_id, distNow);
@@ -554,6 +582,193 @@ export const getMealSuggestions = async (req, res) => {
 
   } catch (err) {
     console.error('Get Meal Suggestions Error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// =============================================================
+// UPDATE A SINGLE INGREDIENT QUANTITY
+// PUT /api/meal/:meal_id/ingredients/:ingredient_id
+// Restricted to today's meal only.
+// =============================================================
+export const updateMealIngredient = async (req, res) => {
+  try {
+    const { school_id } = req.user;
+    const { meal_id, ingredient_id } = req.params;
+    const { quantity_g } = req.body;
+
+    if (!quantity_g || quantity_g <= 0) {
+      return res.status(400).json({ message: 'quantity_g must be a positive number' });
+    }
+
+    if (quantity_g > 50000) {
+      return res.status(400).json({ message: 'quantity_g seems unrealistic (max 50,000g)' });
+    }
+
+    // Verify meal belongs to this school
+    const mealCheck = await pool.query(
+      `SELECT id, school_id, served_date FROM meals WHERE id = $1 AND school_id = $2`,
+      [meal_id, school_id]
+    );
+    if (mealCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Meal not found in your school' });
+    }
+    if (!(await isToday(mealCheck.rows[0].served_date, pool))) {
+      return res.status(403).json({ message: 'Ingredients can only be edited on today\'s meal' });
+    }
+
+    // Verify ingredient exists in this meal
+    const rowCheck = await pool.query(
+      `SELECT id FROM meal_ingredients WHERE meal_id = $1 AND ingredient_id = $2`,
+      [meal_id, ingredient_id]
+    );
+    if (rowCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Ingredient not found in this meal' });
+    }
+
+    const result = await pool.query(
+      `UPDATE meal_ingredients
+       SET quantity_g = $1
+       WHERE meal_id = $2 AND ingredient_id = $3
+       RETURNING *`,
+      [quantity_g, meal_id, ingredient_id]
+    );
+
+    // Update meal timestamp
+    await pool.query(`UPDATE meals SET updated_at = NOW() WHERE id = $1`, [meal_id]);
+
+    // Auto-recalculate distribution
+    try {
+      const studentCount = await pool.query(
+        `SELECT COUNT(*) FROM students WHERE school_id = $1`, [school_id]
+      );
+      if (parseInt(studentCount.rows[0].count) > 0) {
+        const totalNutrients = await calculateMealNutrients(meal_id);
+        const distribution   = await computeDistributionByRda(totalNutrients, school_id);
+        await saveDistribution(meal_id, distribution);
+      }
+    } catch (recalcErr) {
+      console.warn('Auto-recalc warning:', recalcErr.message);
+    }
+
+    return res.status(200).json({
+      message: 'Ingredient quantity updated. Nutrients auto-recalculated.',
+      meal_ingredient: result.rows[0],
+    });
+
+  } catch (err) {
+    console.error('Update Meal Ingredient Error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// =============================================================
+// DELETE A SINGLE INGREDIENT FROM MEAL
+// DELETE /api/meal/:meal_id/ingredients/:ingredient_id
+// Restricted to today's meal only.
+// =============================================================
+export const deleteMealIngredient = async (req, res) => {
+  try {
+    const { school_id } = req.user;
+    const { meal_id, ingredient_id } = req.params;
+
+    // Verify meal belongs to this school
+    const mealCheck = await pool.query(
+      `SELECT id, school_id, served_date FROM meals WHERE id = $1 AND school_id = $2`,
+      [meal_id, school_id]
+    );
+    if (mealCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Meal not found in your school' });
+    }
+    if (!(await isToday(mealCheck.rows[0].served_date, pool))) {
+      return res.status(403).json({ message: 'Ingredients can only be removed from today\'s meal' });
+    }
+
+    // Delete the ingredient row
+    const result = await pool.query(
+      `DELETE FROM meal_ingredients
+       WHERE meal_id = $1 AND ingredient_id = $2
+       RETURNING *`,
+      [meal_id, ingredient_id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Ingredient not found in this meal' });
+    }
+
+    // Update meal timestamp
+    await pool.query(`UPDATE meals SET updated_at = NOW() WHERE id = $1`, [meal_id]);
+
+    // Auto-recalculate distribution if ingredients still remain
+    try {
+      const remaining = await pool.query(
+        `SELECT COUNT(*) FROM meal_ingredients WHERE meal_id = $1`, [meal_id]
+      );
+      if (parseInt(remaining.rows[0].count) > 0) {
+        const studentCount = await pool.query(
+          `SELECT COUNT(*) FROM students WHERE school_id = $1`, [school_id]
+        );
+        if (parseInt(studentCount.rows[0].count) > 0) {
+          const totalNutrients = await calculateMealNutrients(meal_id);
+          const distribution   = await computeDistributionByRda(totalNutrients, school_id);
+          await saveDistribution(meal_id, distribution);
+        }
+      } else {
+        // No ingredients left — clear distribution and summary
+        await pool.query(`DELETE FROM meal_distributions WHERE meal_id = $1`, [meal_id]);
+        await pool.query(`DELETE FROM meal_nutrition_summary WHERE meal_id = $1`, [meal_id]);
+      }
+    } catch (recalcErr) {
+      console.warn('Auto-recalc warning:', recalcErr.message);
+    }
+
+    return res.status(200).json({
+      message: 'Ingredient removed from meal. Nutrients auto-recalculated.',
+    });
+
+  } catch (err) {
+    console.error('Delete Meal Ingredient Error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// =============================================================
+// DELETE ALL INGREDIENTS FROM MEAL (clear/reset)
+// DELETE /api/meal/:meal_id/ingredients
+// Restricted to today's meal only.
+// =============================================================
+export const clearMealIngredients = async (req, res) => {
+  try {
+    const { school_id } = req.user;
+    const { meal_id } = req.params;
+
+    // Verify meal belongs to this school
+    const mealCheck = await pool.query(
+      `SELECT id, school_id, served_date FROM meals WHERE id = $1 AND school_id = $2`,
+      [meal_id, school_id]
+    );
+    if (mealCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Meal not found in your school' });
+    }
+    if (!(await isToday(mealCheck.rows[0].served_date, pool))) {
+      return res.status(403).json({ message: 'Ingredients can only be cleared from today\'s meal' });
+    }
+
+    const deleted = await pool.query(
+      `DELETE FROM meal_ingredients WHERE meal_id = $1 RETURNING id`,
+      [meal_id]
+    );
+
+    // Clear downstream data since there are no ingredients anymore
+    await pool.query(`DELETE FROM meal_distributions    WHERE meal_id = $1`, [meal_id]);
+    await pool.query(`DELETE FROM meal_nutrition_summary WHERE meal_id = $1`, [meal_id]);
+    await pool.query(`UPDATE meals SET updated_at = NOW() WHERE id = $1`, [meal_id]);
+
+    return res.status(200).json({
+      message: `${deleted.rowCount} ingredient(s) cleared. Distribution and summary reset.`,
+    });
+
+  } catch (err) {
+    console.error('Clear Meal Ingredients Error:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };

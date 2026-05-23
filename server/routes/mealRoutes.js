@@ -9,6 +9,7 @@ import {
   getMeals,
   getMealById,
   addMealIngredients,
+  deleteMealIngredient,
   distributeMeal,
   getMealDistribution,
   getMealSummary,
@@ -74,6 +75,14 @@ router.post(
   protect(['school', 'teacher']),
   requireMealPermission,
   addMealIngredients
+);
+
+// Delete an ingredient from a meal
+router.delete(
+  '/:meal_id/ingredients/:ingredient_id',
+  protect(['school', 'teacher']),
+  requireMealPermission,
+  deleteMealIngredient,
 );
 
 // ── Distribution ──────────────────────────────────────────────

@@ -6,19 +6,21 @@ import pool from "../database/database.js";
 export const createClass = async (req, res) => {
   try {
     const { school_id } = req.user;
-    const { name, section } = req.body;
+    const { name, section, level } = req.body;
 
     if (!name) {
-      return res.status(400).json({
-        message: "Class name is required"
-      });
+      return res.status(400).json({ message: "Class name is required" });
+    }
+
+    if (level && !['primary', 'upper_primary'].includes(level)) {
+      return res.status(400).json({ message: "level must be 'primary' or 'upper_primary'" });
     }
 
     const result = await pool.query(
-      `INSERT INTO classes (school_id, name, section)
-       VALUES ($1, $2, $3)
+      `INSERT INTO classes (school_id, name, section, level)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [school_id, name, section || null]
+      [school_id, name, section || null, level || null]
     );
 
     return res.status(201).json({
@@ -75,7 +77,11 @@ export const updateClass = async (req, res) => {
   try {
     const { school_id } = req.user;
     const { id } = req.params;
-    const { name, section } = req.body;
+    const { name, section, level } = req.body;
+
+    if (level && !['primary', 'upper_primary'].includes(level)) {
+      return res.status(400).json({ message: "level must be 'primary' or 'upper_primary'" });
+    }
 
     // 1. Check class exists in school
     const classCheck = await pool.query(
@@ -90,11 +96,12 @@ export const updateClass = async (req, res) => {
     // 2. Update (partial)
     const result = await pool.query(
       `UPDATE classes
-       SET name = COALESCE($1, name),
-           section = COALESCE($2, section)
-       WHERE id = $3 AND school_id = $4
+       SET name    = COALESCE($1, name),
+           section = COALESCE($2, section),
+           level   = COALESCE($3, level)
+       WHERE id = $4 AND school_id = $5
        RETURNING *`,
-      [name, section, id, school_id]
+      [name, section, level, id, school_id]
     );
 
     return res.status(200).json({
