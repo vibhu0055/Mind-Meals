@@ -13,6 +13,8 @@ import HealthPage from '../pages/HealthPage';
 import MealsPage from '../pages/MealsPage';
 import MealDetailPage from '../pages/MealDetailPage';
 import NutritionPage from '../pages/NutritionPage';
+import AtRiskPage from '../pages/AtRiskPage';
+import MealPlannerPage from '../pages/MealPlannerPage';
 
 export default function AppRouter() {
   return (
@@ -33,6 +35,8 @@ export default function AppRouter() {
             <Route path="/meals" element={<MealsPage />} />
             <Route path="/meals/:id" element={<MealDetailPage />} />
             <Route path="/nutrition" element={<NutritionPage />} />
+            <Route path="/at-risk" element={<AtRiskPage />} />
+            <Route path="/meal-planner" element={<MealPlannerPage />} />
 
             {/* School-only */}
             <Route element={<SchoolRoute />}>

@@ -4,88 +4,39 @@ import { useAuth } from '../features/auth/AuthContext';
 import { getTeachers } from '../api/teachers';
 import { getClasses } from '../api/classes';
 import { getStudents, getStudentsByClass } from '../api/students';
-import { getMeals } from '../api/meals';
+import { getMeals, getTodaysMeal, getMealScore } from '../api/meals';
 import { getTeacherProfile } from '../api/teachers';
+import { getSchoolReports } from '../api/nutrition';
 import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
 import { PageLoader } from '../components/ui/Spinner';
 import AssignedClassCards from '../components/dashboard/AssignedClassCards';
 import {
   UserSquare2, BookOpen, Users, UtensilsCrossed,
-  ArrowRight, TrendingUp, HeartPulse
+  ArrowRight, TrendingUp, HeartPulse, ShieldAlert, AlertTriangle,
+  CheckCircle, Flame, Leaf, Star, Clock, BellRing, CalendarDays,
+  ChevronRight, Activity,
 } from 'lucide-react';
 
-function StatCard({ label, value, icon: Icon, color = 'green', to }) {
-  const colors = {
-    green: 'text-[var(--accent)] bg-[var(--accent-dim)]',
-    amber: 'text-[var(--amber)] bg-[var(--amber-dim)]',
-    blue: 'text-[var(--blue)] bg-[var(--blue-dim)]',
-    purple: 'text-[var(--purple)] bg-[var(--purple-dim)]',
-  };
-
-  return (
-    <Card className="flex items-center gap-4">
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${colors[color]}`}>
-        <Icon size={20} />
-      </div>
-      <div className="flex-1">
-        <div className="text-2xl font-bold text-[var(--text-primary)]">{value}</div>
-        <div className="text-xs text-[var(--text-muted)] mt-0.5">{label}</div>
-      </div>
-      {to && (
-        <Link to={to} className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors">
-          <ArrowRight size={16} />
-        </Link>
-      )}
-    </Card>
-  );
-}
-
+/* ─── helpers ──────────────────────────────────────────────────────────────── */
 function getTeacherId(user, profile) {
   return profile?.id || user?.id || user?.user_id || null;
 }
-
-function getClassTeacherId(classItem) {
-  return (
-    classItem.assigned_teacher_id ||
-    classItem.teacher_id ||
-    classItem.teacher?.id ||
-    classItem.assigned_teacher?.id ||
-    ''
-  );
+function getClassTeacherId(c) {
+  return c.assigned_teacher_id || c.teacher_id || c.teacher?.id || c.assigned_teacher?.id || '';
 }
-
-function hasTeacherAssignment(classItem) {
-  return !!getClassTeacherId(classItem);
-}
+function hasTeacherAssignment(c) { return !!getClassTeacherId(c); }
 
 function normaliseAssignedClasses(profile, classes, teacherId) {
-  const rawProfileClasses = profile?.assigned_classes || profile?.classes || profile?.class_names;
-  let profileClasses = rawProfileClasses;
-
-  if (typeof rawProfileClasses === 'string') {
-    try {
-      profileClasses = JSON.parse(rawProfileClasses);
-    } catch {
-      profileClasses = [];
-    }
+  const raw = profile?.assigned_classes || profile?.classes || profile?.class_names;
+  let parsed = raw;
+  if (typeof raw === 'string') { try { parsed = JSON.parse(raw); } catch { parsed = []; } }
+  if (Array.isArray(parsed) && parsed.length) {
+    return parsed.map((c) => ({ id: c.id || c.class_id, name: c.name || c.class_name, section: c.section })).filter((c) => c.id);
   }
-
-  if (Array.isArray(profileClasses) && profileClasses.length) {
-    return profileClasses
-      .map((c) => ({
-        id: c.id || c.class_id,
-        name: c.name || c.class_name,
-        section: c.section,
-      }))
-      .filter((c) => c.id);
-  }
-
-  const classesWithAssignments = classes.filter(hasTeacherAssignment);
-  const sourceClasses = classesWithAssignments.length
-    ? classesWithAssignments.filter((c) => String(getClassTeacherId(c)) === String(teacherId))
-    : classes;
-
-  return sourceClasses.map((c) => ({ id: c.id, name: c.name || c.class_name, section: c.section }));
+  const withAssign = classes.filter(hasTeacherAssignment);
+  const src = withAssign.length ? withAssign.filter((c) => String(getClassTeacherId(c)) === String(teacherId)) : classes;
+  return src.map((c) => ({ id: c.id, name: c.name || c.class_name, section: c.section }));
 }
 
 function getStudentArray(data) {
@@ -94,50 +45,376 @@ function getStudentArray(data) {
   return [];
 }
 
+function scoreColor(score) {
+  if (score >= 85) return 'var(--accent)';
+  if (score >= 65) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function scoreLabel(score) {
+  if (score >= 85) return 'Balanced';
+  if (score >= 65) return 'Good';
+  if (score >= 45) return 'Average';
+  return 'Poor';
+}
+
+function scoreColorName(score) {
+  if (score >= 85) return 'green';
+  if (score >= 65) return 'amber';
+  return 'red';
+}
+
+/* ─── sub-components ───────────────────────────────────────────────────────── */
+function StatCard({ label, value, icon: Icon, color = 'green', to, sublabel }) {
+  const colors = {
+    green: 'text-[var(--accent)] bg-[var(--accent-dim)]',
+    amber: 'text-[var(--amber)] bg-[var(--amber-dim)]',
+    blue: 'text-[var(--blue)] bg-[var(--blue-dim)]',
+    purple: 'text-[var(--purple)] bg-[var(--purple-dim)]',
+    red: 'text-[var(--red)] bg-[var(--red-dim)]',
+  };
+  const inner = (
+    <Card className="flex items-center gap-4 h-full">
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${colors[color]}`}>
+        <Icon size={20} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-2xl font-bold text-[var(--text-primary)]">{value}</div>
+        <div className="text-xs text-[var(--text-muted)] mt-0.5 truncate">{label}</div>
+        {sublabel && <div className="text-[10px] text-[var(--text-muted)] opacity-70 truncate">{sublabel}</div>}
+      </div>
+      {to && <ArrowRight size={15} className="text-[var(--text-muted)] flex-shrink-0" />}
+    </Card>
+  );
+  return to ? <Link to={to} className="block h-full">{inner}</Link> : inner;
+}
+
+
+
+/* ── Today's Meal Card ──────────────────────────────────────────────────────── */
+function TodaysMealCard({ meal, score }) {
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
+
+  if (!meal) {
+    return (
+      <Card className="mb-5">
+        <div className="flex items-center gap-2 mb-3">
+          <CalendarDays size={15} className="text-[var(--text-muted)]" />
+          <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Today's Meal</span>
+          <span className="text-xs text-[var(--text-muted)] ml-auto">{today}</span>
+        </div>
+        <div className="flex items-center gap-3 py-3 px-3 rounded-xl bg-[var(--bg-hover)] border border-dashed border-[var(--border)]">
+          <UtensilsCrossed size={18} className="text-[var(--text-muted)]" />
+          <div>
+            <div className="text-sm font-medium text-[var(--text-secondary)]">No meal logged yet</div>
+            <div className="text-xs text-[var(--text-muted)]">Log today's meal to track nutrition</div>
+          </div>
+          <Link to="/meals" className="ml-auto text-xs font-semibold text-[var(--accent)] hover:opacity-80">
+            Log now →
+          </Link>
+        </div>
+      </Card>
+    );
+  }
+
+  const sc = typeof score === 'number' ? score : null;
+
+  return (
+    <Card className="mb-5">
+      <div className="flex items-center gap-2 mb-3">
+        <CalendarDays size={15} className="text-[var(--text-muted)]" />
+        <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Today's Meal</span>
+        <span className="text-xs text-[var(--text-muted)] ml-auto">{today}</span>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-base font-bold text-[var(--text-primary)] truncate">{meal.name}</div>
+          <div className="text-xs text-[var(--text-muted)] mt-0.5">
+            {meal.ingredients?.length > 0
+              ? `${meal.ingredients.length} ingredient${meal.ingredients.length !== 1 ? 's' : ''}`
+              : 'No ingredients yet'}
+          </div>
+        </div>
+
+        {sc !== null && (
+          <div className="flex flex-col items-center flex-shrink-0">
+            {/* Donut score */}
+            <svg width="56" height="56" viewBox="0 0 56 56">
+              <circle cx="28" cy="28" r="22" fill="none" stroke="var(--border)" strokeWidth="5" />
+              <circle
+                cx="28" cy="28" r="22" fill="none"
+                stroke={scoreColor(sc)} strokeWidth="5"
+                strokeLinecap="round"
+                strokeDasharray={`${(sc / 100) * 138.2} 138.2`}
+                transform="rotate(-90 28 28)"
+                style={{ transition: 'stroke-dasharray 0.6s ease' }}
+              />
+              <text x="28" y="32" textAnchor="middle" fontSize="12" fontWeight="700"
+                fill={scoreColor(sc)}>{sc}</text>
+            </svg>
+            <Badge color={scoreColorName(sc)} className="text-[10px] mt-0.5">{scoreLabel(sc)}</Badge>
+          </div>
+        )}
+
+        <Link
+          to={`/meals/${meal.id}`}
+          className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:opacity-80 transition-opacity"
+        >
+          View
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+/* ── Nutrition Breakdown Row (school) ──────────────────────────────────────── */
+function NutritionStatusRow({ reports }) {
+  if (!reports?.length) return null;
+
+  const total = reports.length;
+  const adequate = reports.filter((r) => r.overall_status === 'adequate').length;
+  const deficient = reports.filter((r) => r.overall_status === 'deficient').length;
+  const excess = reports.filter((r) => r.overall_status === 'excess').length;
+
+  const pctAdequate = Math.round((adequate / total) * 100);
+  const pctDeficient = Math.round((deficient / total) * 100);
+
+  return (
+    <Card className="mb-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Activity size={15} className="text-[var(--text-muted)]" />
+        <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+          Latest Nutrition Reports
+        </span>
+        <Link to="/nutrition" className="ml-auto text-xs text-[var(--accent)] hover:opacity-80 flex items-center gap-1">
+          All reports <ArrowRight size={11} />
+        </Link>
+      </div>
+
+      {/* Stacked bar */}
+      <div className="flex rounded-full overflow-hidden h-2.5 mb-3 gap-0.5">
+        {pctAdequate > 0 && (
+          <div className="h-full rounded-full" style={{ width: `${pctAdequate}%`, background: 'var(--accent)' }} />
+        )}
+        {pctDeficient > 0 && (
+          <div className="h-full rounded-full" style={{ width: `${pctDeficient}%`, background: 'var(--red)' }} />
+        )}
+        {excess > 0 && (
+          <div className="h-full rounded-full" style={{ width: `${Math.round((excess / total) * 100)}%`, background: 'var(--amber)' }} />
+        )}
+      </div>
+
+      <div className="flex gap-4">
+        {[
+          { label: 'Adequate', count: adequate, color: 'var(--accent)' },
+          { label: 'Deficient', count: deficient, color: 'var(--red)' },
+          { label: 'Excess', count: excess, color: 'var(--amber)' },
+        ].map(({ label, count, color }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+            <span className="text-xs text-[var(--text-muted)]">{label}</span>
+            <span className="text-xs font-bold text-[var(--text-primary)]">{count}</span>
+          </div>
+        ))}
+        <span className="ml-auto text-xs text-[var(--text-muted)]">{total} students</span>
+      </div>
+    </Card>
+  );
+}
+
+/* ── At-Risk Panel ──────────────────────────────────────────────────────────── */
+function AtRiskPanel({ riskStats, totalStudents }) {
+  const rows = [
+    { label: 'Critical', count: riskStats?.critical ?? '—', icon: ShieldAlert, color: 'var(--red)', dim: 'var(--red-dim)', desc: 'Severe thinness / SAM' },
+    { label: 'High Risk', count: riskStats?.highRisk ?? '—', icon: AlertTriangle, color: 'var(--amber)', dim: 'var(--amber-dim)', desc: 'Thinness, needs attention' },
+    { label: 'Moderate Risk', count: riskStats?.moderate ?? '—', icon: AlertTriangle, color: 'var(--yellow,#eab308)', dim: 'rgba(234,179,8,0.12)', desc: 'Monitor closely' },
+  ];
+  const flagged = (riskStats?.critical ?? 0) + (riskStats?.highRisk ?? 0) + (riskStats?.moderate ?? 0);
+  const pct = totalStudents ? Math.round((flagged / totalStudents) * 100) : null;
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-7 h-7 rounded-lg bg-[var(--red-dim)] flex items-center justify-center">
+          <ShieldAlert size={14} className="text-[var(--red)]" />
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-[var(--text-primary)]">Health Risk</div>
+          <div className="text-[10px] text-[var(--text-muted)]">WHO malnutrition classification</div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 mb-4">
+        {rows.map(({ label, count, icon: Icon, color, dim, desc }) => (
+          <div key={label} className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] border border-[var(--border)]"
+            style={{ background: dim + '66' }}>
+            <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: dim }}>
+              <Icon size={12} style={{ color }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold" style={{ color }}>{label}</div>
+              <div className="text-[10px] text-[var(--text-muted)]">{desc}</div>
+            </div>
+            <div className="text-lg font-bold flex-shrink-0" style={{ color }}>{count}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="px-3 py-2.5 bg-[var(--bg-hover)] rounded-[10px] border border-[var(--border)] mb-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs text-[var(--text-muted)]">Total flagged</span>
+          <span className="text-sm font-bold text-[var(--text-primary)]">
+            {flagged}{pct !== null ? ` (${pct}%)` : ''}
+          </span>
+        </div>
+        {pct !== null && (
+          <div className="h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(pct, 100)}%`, background: pct > 20 ? 'var(--red)' : pct > 10 ? 'var(--amber)' : 'var(--accent)' }} />
+          </div>
+        )}
+      </div>
+
+      <Link to="/at-risk"
+        className="flex items-center justify-center gap-2 w-full py-2 rounded-[10px] bg-[var(--accent-dim)] text-[var(--accent)] text-xs font-semibold hover:opacity-80 transition-opacity">
+        View At-Risk Students <ArrowRight size={12} />
+      </Link>
+    </Card>
+  );
+}
+
+/* ── Recent Meals List ──────────────────────────────────────────────────────── */
+function RecentMeals({ meals }) {
+  if (!meals?.length) return null;
+  const recent = meals.slice(0, 4);
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Recent Meals</div>
+        <Link to="/meals" className="text-xs text-[var(--accent)] hover:opacity-80">All →</Link>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {recent.map((m) => {
+          const d = new Date(m.served_date);
+          const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+          return (
+            <Link key={m.id} to={`/meals/${m.id}`}>
+              <div className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors">
+                <div className="w-6 h-6 rounded-md bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
+                  <UtensilsCrossed size={11} className="text-[var(--accent)]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{m.name}</div>
+                </div>
+                <div className="text-[10px] text-[var(--text-muted)] flex-shrink-0">{label}</div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+/* ── Main Page ──────────────────────────────────────────────────────────────── */
 export default function DashboardPage() {
   const { user, isSchool, isTeacher } = useAuth();
   const [stats, setStats] = useState(null);
+  const [riskStats, setRiskStats] = useState(null);
+  const [todaysMeal, setTodaysMeal] = useState(undefined); // undefined = loading, null = none
+  const [mealScore, setMealScore] = useState(null);
+  const [recentMeals, setRecentMeals] = useState([]);
+  const [nutritionSummary, setNutritionSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchAll = async () => {
       try {
+        // ── Today's meal (both roles) ──────────────────────────────────────
+        const mealRes = await getTodaysMeal().catch(() => null);
+        const meal = mealRes?.data?.meal ?? null;
+        setTodaysMeal({ ...meal, ingredients: mealRes?.data?.ingredients || [] });
+
+        if (meal?.id) {
+          getMealScore(meal.id)
+            .then((r) => setMealScore(r.data?.score ?? null))
+            .catch(() => {});
+        }
+
+        // ── Recent meals ───────────────────────────────────────────────────
+        const mealsRes = await getMeals().catch(() => null);
+        const allMeals = mealsRes?.data?.meals || [];
+        const sorted = [...allMeals].sort((a, b) => new Date(b.served_date) - new Date(a.served_date));
+        setRecentMeals(sorted);
+
+        // ── Role-specific stats ────────────────────────────────────────────
         if (isSchool) {
-          const [t, c, s, m] = await Promise.allSettled([
-            getTeachers(), getClasses(), getStudents(), getMeals()
+          const [t, c, s, critical, highRisk, moderate, reports] = await Promise.allSettled([
+            getTeachers(),
+            getClasses(),
+            getStudents(),
+            getStudents({ malnutrition_label: 'Critical' }),
+            getStudents({ malnutrition_label: 'High Risk' }),
+            getStudents({ malnutrition_label: 'Moderate Risk' }),
+            // latest meal's reports for nutrition bar
+            meal?.id ? getSchoolReports({ meal_id: meal.id }) : Promise.resolve(null),
           ]);
 
           setStats({
             teachers: t.value?.data?.teachers?.length ?? '-',
             classes: c.value?.data?.classes?.length ?? '-',
-            students: s.value?.data?.students?.length ?? '-',
-            meals: m.value?.data?.meals?.length ?? '-',
+            students: s.value?.data?.total ?? s.value?.data?.students?.length ?? '-',
+            meals: allMeals.length,
           });
+          setRiskStats({
+            critical: critical.value?.data?.total ?? critical.value?.data?.students?.length ?? 0,
+            highRisk: highRisk.value?.data?.total ?? highRisk.value?.data?.students?.length ?? 0,
+            moderate: moderate.value?.data?.total ?? moderate.value?.data?.students?.length ?? 0,
+          });
+          if (reports.value?.data?.reports?.length) {
+            setNutritionSummary(reports.value.data.reports);
+          }
         } else {
-          const [profile, meals, classRes] = await Promise.allSettled([
-            getTeacherProfile(), getMeals(), getClasses()
-          ]);
+          // teacher
+          const [profile, classRes] = await Promise.allSettled([getTeacherProfile(), getClasses()]);
           const profileData = profile.value?.data?.teacher;
           const teacherId = getTeacherId(user, profileData);
           const classList = classRes.value?.data?.classes || [];
           const assignedClasses = normaliseAssignedClasses(profileData, classList, teacherId);
-          const assignedClassesWithCounts = await Promise.all(
-            assignedClasses.map(async (classItem) => {
-              const res = await getStudentsByClass(classItem.id).catch(() => null);
-              return {
-                ...classItem,
-                studentCount: getStudentArray(res?.data).length,
-              };
+
+          const classesWithCounts = await Promise.all(
+            assignedClasses.map(async (cl) => {
+              const res = await getStudentsByClass(cl.id).catch(() => null);
+              return { ...cl, studentCount: getStudentArray(res?.data).length };
             })
           );
-          const studentCount = assignedClassesWithCounts.reduce((sum, classItem) => sum + classItem.studentCount, 0);
+          const studentCount = classesWithCounts.reduce((s, c) => s + c.studentCount, 0);
 
+          const riskResults = await Promise.allSettled(
+            assignedClasses.map((cl) =>
+              Promise.allSettled([
+                getStudentsByClass(cl.id, { malnutrition_label: 'Critical' }),
+                getStudentsByClass(cl.id, { malnutrition_label: 'High Risk' }),
+                getStudentsByClass(cl.id, { malnutrition_label: 'Moderate Risk' }),
+              ])
+            )
+          );
+          let tCritical = 0, tHigh = 0, tModerate = 0;
+          riskResults.forEach((r) => {
+            if (r.status === 'fulfilled') {
+              tCritical  += r.value[0].value?.data?.total ?? r.value[0].value?.data?.students?.length ?? 0;
+              tHigh      += r.value[1].value?.data?.total ?? r.value[1].value?.data?.students?.length ?? 0;
+              tModerate  += r.value[2].value?.data?.total ?? r.value[2].value?.data?.students?.length ?? 0;
+            }
+          });
+          setRiskStats({ critical: tCritical, highRisk: tHigh, moderate: tModerate });
           setStats({
             profile: profileData,
-            classes: assignedClassesWithCounts.length,
-            assignedClasses: assignedClassesWithCounts,
+            classes: assignedClasses.length,
+            assignedClasses: classesWithCounts,
             students: studentCount,
-            meals: meals.value?.data?.meals?.length ?? '-',
+            meals: allMeals.length,
           });
         }
       } catch (e) {
@@ -147,89 +424,105 @@ export default function DashboardPage() {
       }
     };
 
-    fetchStats();
+    fetchAll();
   }, [isSchool, user]);
 
   if (loading) return <PageLoader />;
 
+  const totalStudents = typeof stats?.students === 'number' ? stats.students : null;
+  const flagged = (riskStats?.critical ?? 0) + (riskStats?.highRisk ?? 0);
+  const hasCriticalAlert = flagged > 0;
+
   return (
     <div className="animate-fade-in">
-      <div className="mb-8">
+      {/* ── Greeting ── */}
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-          Good day, {user?.name?.split(' ')[0]}
+          Good day, {user?.name?.split(' ')[0]} 👋
         </h1>
         <p className="text-sm text-[var(--text-muted)] mt-1">
           {isSchool ? 'School administration overview' : 'Your teaching dashboard'}
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        {isSchool ? (
-          <>
-            <StatCard label="Teachers" value={stats?.teachers} icon={UserSquare2} color="blue" to="/teachers" />
-            <StatCard label="Classes" value={stats?.classes} icon={BookOpen} color="amber" to="/classes" />
-            <StatCard label="Students" value={stats?.students} icon={Users} color="purple" to="/students" />
-            <StatCard label="Meals logged" value={stats?.meals} icon={UtensilsCrossed} color="green" to="/meals" />
-          </>
-        ) : (
-          <>
-            <StatCard label="Assigned Classes" value={stats?.classes} icon={BookOpen} color="amber" />
-            <StatCard label="Students" value={stats?.students} icon={Users} color="purple" to="/students" />
-            <StatCard label="Meals logged" value={stats?.meals} icon={UtensilsCrossed} color="green" to="/meals" />
-          </>
-        )}
-      </div>
-
-      {isTeacher && (
-        <AssignedClassCards
-          classes={stats?.assignedClasses || []}
-          className="mb-8"
-        />
+      {/* ── Critical alert banner ── */}
+      {hasCriticalAlert && (
+        <Link to="/at-risk">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--red-dim)] border border-[rgba(248,113,113,0.35)] mb-5 hover:opacity-90 transition-opacity">
+            <BellRing size={16} className="text-[var(--red)] flex-shrink-0" />
+            <span className="text-sm text-[var(--red)] font-medium flex-1">
+              {riskStats.critical > 0
+                ? `${riskStats.critical} student${riskStats.critical !== 1 ? 's' : ''} in Critical condition`
+                : `${riskStats.highRisk} student${riskStats.highRisk !== 1 ? 's are' : ' is'} High Risk`}
+              {' '}— tap to review
+            </span>
+            <ChevronRight size={14} className="text-[var(--red)] flex-shrink-0" />
+          </div>
+        </Link>
       )}
 
-      <div>
-        <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4">
-          Quick Actions
-        </h2>
-        <div className="grid grid-cols-1 gap-3">
-          {isSchool && (
-            <>
-              <QuickAction to="/teachers" icon={UserSquare2} title="Manage Teachers" desc="Add, remove, or update meal permissions" color="blue" />
-              <QuickAction to="/classes" icon={BookOpen} title="Manage Classes" desc="Create classes and assign teachers" color="amber" />
-              <QuickAction to="/students" icon={Users} title="View All Students" desc="Browse students by class" color="purple" />
-            </>
+      <div className="flex gap-6 items-start">
+        {/* ── Left column ── */}
+        <div className="flex-1 min-w-0">
+
+          {/* Stat cards */}
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            {isSchool ? (
+              <>
+                <StatCard label="Teachers" value={stats?.teachers} icon={UserSquare2} color="blue" to="/teachers" />
+                <StatCard label="Classes" value={stats?.classes} icon={BookOpen} color="amber" to="/classes" />
+                <StatCard label="Total Students" value={stats?.students} icon={Users} color="purple" to="/students" />
+                <StatCard
+                  label="Meals Logged"
+                  value={stats?.meals}
+                  icon={UtensilsCrossed}
+                  color="green"
+                  to="/meals"
+                  sublabel={`${recentMeals.length} this period`}
+                />
+              </>
+            ) : (
+              <>
+                <StatCard label="Assigned Classes" value={stats?.classes} icon={BookOpen} color="amber" />
+                <StatCard label="My Students" value={stats?.students} icon={Users} color="purple" to="/students" />
+                <StatCard label="Meals Logged" value={stats?.meals} icon={UtensilsCrossed} color="green" to="/meals" />
+                <StatCard
+                  label="At-Risk Students"
+                  value={(riskStats?.critical ?? 0) + (riskStats?.highRisk ?? 0)}
+                  icon={ShieldAlert}
+                  color={(riskStats?.critical ?? 0) > 0 ? 'red' : 'amber'}
+                  to="/at-risk"
+                  sublabel="Critical + High Risk"
+                />
+              </>
+            )}
+          </div>
+
+          {/* Today's meal */}
+          <TodaysMealCard
+            meal={todaysMeal?.id ? todaysMeal : null}
+            score={mealScore}
+          />
+
+          {/* Nutrition summary (school only, when reports exist) */}
+          {isSchool && nutritionSummary && (
+            <NutritionStatusRow reports={nutritionSummary} />
           )}
-          <QuickAction to="/meals" icon={UtensilsCrossed} title="Log a Meal" desc="Record ingredients and review nutrition" color="green" />
+
+          {/* Teacher: assigned class cards */}
           {isTeacher && (
-            <QuickAction to="/health" icon={HeartPulse} title="Add Health Record" desc="Record student height, weight and BMI" color="amber" />
+            <AssignedClassCards classes={stats?.assignedClasses || []} className="mb-5" />
           )}
-          <QuickAction to="/nutrition" icon={TrendingUp} title="Nutrition Reports" desc="View adequacy and deficiency data" color="purple" />
+
+
+        </div>
+
+        {/* ── Right column ── */}
+        <div className="w-72 flex-shrink-0 flex flex-col gap-4">
+          <AtRiskPanel riskStats={riskStats} totalStudents={totalStudents} />
+          <RecentMeals meals={recentMeals} />
         </div>
       </div>
     </div>
-  );
-}
-
-function QuickAction({ to, icon: Icon, title, desc, color }) {
-  const colors = {
-    green: 'text-[var(--accent)] bg-[var(--accent-dim)]',
-    amber: 'text-[var(--amber)] bg-[var(--amber-dim)]',
-    blue: 'text-[var(--blue)] bg-[var(--blue-dim)]',
-    purple: 'text-[var(--purple)] bg-[var(--purple-dim)]',
-  };
-
-  return (
-    <Link to={to}>
-      <Card hover className="flex items-center gap-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${colors[color]}`}>
-          <Icon size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
-          <div className="text-xs text-[var(--text-muted)] truncate">{desc}</div>
-        </div>
-        <ArrowRight size={16} className="text-[var(--text-muted)] flex-shrink-0" />
-      </Card>
-    </Link>
   );
 }

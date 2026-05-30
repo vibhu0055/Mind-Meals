@@ -4,7 +4,7 @@ import { useAuth } from '../../features/auth/AuthContext';
 import {
   LayoutDashboard, Users, BookOpen, UserSquare2,
   HeartPulse, UtensilsCrossed, BarChart3, LogOut,
-  ChevronRight, Leaf, Moon, Sun
+  ChevronRight, Leaf, Moon, Sun, ShieldAlert, Sparkles
 } from 'lucide-react';
 
 const schoolLinks = [
@@ -12,16 +12,24 @@ const schoolLinks = [
   { to: '/teachers', icon: UserSquare2, label: 'Teachers' },
   { to: '/classes', icon: BookOpen, label: 'Classes' },
   { to: '/students', icon: Users, label: 'Students' },
+  { to: '/at-risk', icon: ShieldAlert, label: 'At-Risk Students' },
   { to: '/meals', icon: UtensilsCrossed, label: 'Meals' },
+  { to: '/meal-planner', icon: Sparkles, label: 'Meal Planner' },
   { to: '/nutrition', icon: BarChart3, label: 'Nutrition' },
+
+
 ];
 
 const teacherLinks = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/students', icon: Users, label: 'Students' },
   { to: '/health', icon: HeartPulse, label: 'Health Records' },
+  { to: '/at-risk', icon: ShieldAlert, label: 'At-Risk Students' },
   { to: '/meals', icon: UtensilsCrossed, label: 'Meals' },
+  { to: '/meal-planner', icon: Sparkles, label: 'Meal Planner' },
   { to: '/nutrition', icon: BarChart3, label: 'Nutrition' },
+
+
 ];
 
 export default function Sidebar() {

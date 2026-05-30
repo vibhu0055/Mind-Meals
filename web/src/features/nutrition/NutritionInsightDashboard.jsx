@@ -56,7 +56,7 @@ function StatusSummaryRow({ breakdown }) {
 
 function NutrientCard({ n }) {
   const meta = NUTRIENT_MAP[n.nutrient] || { label: n.nutrient, unit: 'g', color: '#8891a8' };
-  const pct  = n.pct ?? (n.rda ? Math.round((n.received / n.rda) * 100) : 100);
+  const pct  = n.adequacy_pct ?? n.pct ?? (n.rda ? Math.round((n.received / n.rda) * 100) : 100);
   const st   = getStatus(pct) || STATUS_META.adequate;
   const Icon = ICON_MAP[n.nutrient] || Activity;
   const gap  = n.gap ?? (n.rda && n.received != null ? n.received - n.rda : null);
@@ -101,7 +101,7 @@ function DeficiencyAlert({ breakdown }) {
       </div>
       <div className="flex flex-wrap gap-2">
         {deficient.map((n) => {
-          const pct = n.pct ?? (n.rda ? Math.round((n.received / n.rda) * 100) : 0);
+          const pct = n.adequacy_pct ?? n.pct ?? (n.rda ? Math.round((n.received / n.rda) * 100) : 0);
           return (
             <span key={n.nutrient} className="text-xs bg-[rgba(248,113,113,0.15)] text-[var(--red)] border border-[rgba(248,113,113,0.3)] px-2.5 py-1 rounded-full">
               {NUTRIENT_MAP[n.nutrient]?.label || n.nutrient} — {pct}%
@@ -120,7 +120,7 @@ function ProgressBarsSection({ breakdown }) {
       <div className="flex flex-col gap-3.5">
         {breakdown.map((n) => {
           const meta = NUTRIENT_MAP[n.nutrient] || { label: n.nutrient, unit: 'g' };
-          const pct  = n.pct ?? (n.rda ? Math.round((n.received / n.rda) * 100) : 100);
+          const pct  = n.adequacy_pct ?? n.pct ?? (n.rda ? Math.round((n.received / n.rda) * 100) : 100);
           const st   = getStatus(pct);
           return (
             <div key={n.nutrient} className="flex items-center gap-3">
@@ -162,7 +162,7 @@ function NutrientAdequacyTable({ breakdown }) {
           <tbody>
             {breakdown.map((n) => {
               const meta = NUTRIENT_MAP[n.nutrient] || { label: n.nutrient, unit: 'g' };
-              const pct = n.pct ?? (n.rda ? Math.round((n.received / n.rda) * 100) : null);
+              const pct = n.adequacy_pct ?? n.pct ?? (n.rda ? Math.round((n.received / n.rda) * 100) : null);
               const st = getStatus(pct) || STATUS_META.adequate;
               const gap = n.gap ?? (n.rda && n.received != null ? n.received - n.rda : null);
               return (
@@ -264,7 +264,21 @@ export default function NutritionInsightDashboard({ report, studentName, mealNam
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-base font-bold text-[var(--text-primary)]">{studentName || `Student ${norm.student_id}`}</h2>
             <Badge color={sm.badge}>{sm.dot} {sm.label}</Badge>
-            {norm.bmi_flag && <Badge color="amber">BMI: {norm.bmi_category || 'flagged'}</Badge>}
+            {norm.bmi_flag && (
+              <Badge color="amber">BMI: {norm.bmi_category || 'flagged'}</Badge>
+            )}
+            {norm.malnutrition_label && (
+              <Badge color={
+                norm.malnutrition_label === 'Critical' ? 'red'
+                : norm.malnutrition_label === 'High Risk' ? 'amber'
+                : norm.malnutrition_label === 'Moderate Risk' ? 'amber'
+                : norm.malnutrition_label === 'Safe' ? 'green'
+                : norm.malnutrition_label === 'Obese' ? 'red'
+                : 'muted'
+              }>
+                WHO: {norm.malnutrition_label}
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-[var(--text-muted)] mt-1 flex items-center gap-1.5 flex-wrap">
             {mealName && <span className="text-[var(--accent)]">🍽 {mealName}</span>}

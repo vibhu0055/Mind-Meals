@@ -305,11 +305,21 @@ export default function HealthPage() {
                     })}
                   </span>
 
-                  <Badge
-                    color={bmiColor(r.bmi_category)}
-                  >
-                    {r.bmi_category}
+                  <Badge color={bmiColor(r.bmi_category)}>
+                    {r.bmi_category || '—'}
                   </Badge>
+                  {r.malnutrition_label && (
+                    <Badge color={
+                      r.malnutrition_label === 'Critical' ? 'red'
+                      : r.malnutrition_label === 'High Risk' ? 'amber'
+                      : r.malnutrition_label === 'Moderate Risk' ? 'amber'
+                      : r.malnutrition_label === 'Safe' ? 'green'
+                      : r.malnutrition_label === 'Obese' ? 'red'
+                      : 'muted'
+                    }>
+                      WHO: {r.malnutrition_label}
+                    </Badge>
+                  )}
 
                   <span className="text-xs text-[var(--text-muted)]">
                     by {r.teacher_name}

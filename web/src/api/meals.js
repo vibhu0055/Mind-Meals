@@ -17,8 +17,12 @@ export const deleteMeal = (id) => api.delete(`/api/meal/${id}`);
 // ── Ingredients on a meal ─────────────────────────────────────
 export const addMealIngredients = (meal_id, ingredients) =>
   api.post(`/api/meal/${meal_id}/ingredients`, { ingredients });
+export const updateMealIngredient = (meal_id, ingredient_id, quantity_g) =>
+  api.put(`/api/meal/${meal_id}/ingredients/${ingredient_id}`, { quantity_g });
 export const deleteMealIngredient = (meal_id, ingredient_id) =>
   api.delete(`/api/meal/${meal_id}/ingredients/${ingredient_id}`);
+export const clearMealIngredients = (meal_id) =>
+  api.delete(`/api/meal/${meal_id}/ingredients`);
 
 // ── Distribution (auto-computed — manual trigger for debugging only) ──
 // @deprecated: distribution runs automatically after ingredient updates.

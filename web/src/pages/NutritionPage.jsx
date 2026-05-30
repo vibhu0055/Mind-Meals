@@ -18,7 +18,7 @@ import PageHeader from '../components/layout/PageHeader';
 import NutritionInsightDashboard from '../features/nutrition/NutritionInsightDashboard';
 import ClassNutritionView from '../features/nutrition/ClassNutritionView';
 import SchoolNutritionView from '../features/nutrition/SchoolNutritionView';
-import { BarChart3, RefreshCw, School, UtensilsCrossed, Users } from 'lucide-react';
+import { AlertTriangle, BarChart3, RefreshCw, School, UtensilsCrossed, Users } from 'lucide-react';
 
 const TABS = [
   { id: 'student', label: 'Student', icon: Users },
@@ -81,6 +81,8 @@ export default function NutritionPage() {
   const [schoolReports, setSchoolReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [studentError, setStudentError] = useState(null);
+  const [classErrors, setClassErrors] = useState([]);
   const [schoolStatus, setSchoolStatus] = useState('');
   const [schoolNutrient, setSchoolNutrient] = useState('');
 
@@ -110,12 +112,15 @@ export default function NutritionPage() {
     }
 
     setGenerating(true);
+    setStudentError(null);
     try {
       const res = await generateReport(selectedStudent, selectedMeal);
       setReport(res.data.report || res.data);
       toast('Report generated', 'success');
     } catch (err) {
-      toast(err.response?.data?.message || 'Report generation failed', 'error');
+      const msg = err.response?.data?.message || 'Report generation failed';
+      setStudentError(msg);
+      toast(msg, 'error');
     } finally {
       setGenerating(false);
     }
@@ -128,10 +133,20 @@ export default function NutritionPage() {
     }
 
     setGenerating(true);
+    setClassErrors([]);
     try {
       const res = await generateClassReport(selectedClass, selectedMeal);
-      setClassReports(res.data.reports || []);
-      toast(`Reports generated for ${res.data.reports?.length ?? 0} students`, 'success');
+      const reports = res.data.reports || [];
+      const errors = res.data.errors || [];
+      setClassReports(reports);
+      setClassErrors(errors);
+      if (reports.length === 0 && errors.length > 0) {
+        toast(`All students failed — ${errors[0]?.error || 'check group assignments'}`, 'error');
+      } else if (errors.length > 0) {
+        toast(`Reports generated for ${reports.length} students. ${errors.length} failed.`, 'warning');
+      } else {
+        toast(`Reports generated for ${reports.length} students`, 'success');
+      }
     } catch (err) {
       toast(err.response?.data?.message || 'Report generation failed', 'error');
     } finally {
@@ -201,7 +216,7 @@ export default function NutritionPage() {
                 label="Student"
                 className="w-52"
                 value={selectedStudent}
-                onChange={(event) => { setSelectedStudent(event.target.value); setReport(null); }}
+                onChange={(event) => { setSelectedStudent(event.target.value); setReport(null); setStudentError(null); }}
               >
                 <option value="">Select student...</option>
                 {students.map((student) => (
@@ -212,7 +227,7 @@ export default function NutritionPage() {
                 label="Meal"
                 className="w-52"
                 value={selectedMeal}
-                onChange={(event) => { setSelectedMeal(event.target.value); setReport(null); }}
+                onChange={(event) => { setSelectedMeal(event.target.value); setReport(null); setStudentError(null); }}
               >
                 <option value="">Select meal...</option>
                 {meals.map((meal) => <option key={meal.id} value={meal.id}>{mealOptionLabel(meal)}</option>)}
@@ -223,6 +238,17 @@ export default function NutritionPage() {
             </div>
             {meals.length === 0 && <NoMealsBanner />}
           </Card>
+
+          {studentError && (
+            <div className="flex items-start gap-3 p-4 bg-[var(--red-dim)] border border-[rgba(239,68,68,0.25)] rounded-[10px] mb-4">
+              <AlertTriangle size={16} className="text-[var(--red)] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-[var(--red)]">Could not generate report</p>
+                <p className="text-xs text-[var(--red)] opacity-80 mt-0.5">{studentError}</p>
+
+              </div>
+            </div>
+          )}
 
           {report ? (
             <NutritionInsightDashboard
@@ -259,7 +285,7 @@ export default function NutritionPage() {
                 label="Class"
                 className="w-52"
                 value={selectedClass}
-                onChange={(event) => { setSelectedClass(event.target.value); setClassReports([]); }}
+                onChange={(event) => { setSelectedClass(event.target.value); setClassReports([]); setClassErrors([]); }}
               >
                 <option value="">Select class...</option>
                 {classes.map((classItem) => (
@@ -272,7 +298,7 @@ export default function NutritionPage() {
                 label="Meal"
                 className="w-52"
                 value={selectedMeal}
-                onChange={(event) => { setSelectedMeal(event.target.value); setClassReports([]); }}
+                onChange={(event) => { setSelectedMeal(event.target.value); setClassReports([]); setClassErrors([]); }}
               >
                 <option value="">Select meal...</option>
                 {meals.map((meal) => <option key={meal.id} value={meal.id}>{mealOptionLabel(meal)}</option>)}
@@ -283,6 +309,29 @@ export default function NutritionPage() {
             </div>
             {meals.length === 0 && <NoMealsBanner />}
           </Card>
+
+          {classErrors.length > 0 && (
+            <div className="flex items-start gap-3 p-4 bg-[var(--amber-dim)] border border-[rgba(245,158,11,0.25)] rounded-[10px] mb-4">
+              <AlertTriangle size={16} className="text-[var(--amber)] flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-[var(--amber)]">
+                  {classReports.length === 0
+                    ? `All ${classErrors.length} students failed`
+                    : `${classErrors.length} student${classErrors.length !== 1 ? 's' : ''} could not be processed`}
+                </p>
+                <p className="text-xs text-[var(--amber)] opacity-80 mt-0.5">
+                  {classErrors[0]?.error}
+                </p>
+                <div className="mt-2 flex flex-col gap-0.5">
+                  {classErrors.map((e) => (
+                    <p key={e.student_id} className="text-[11px] text-[var(--amber)] opacity-70">
+                      Student ID {e.student_id}: {e.error}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {classReports.length > 0 ? (
             <ClassNutritionView

@@ -284,69 +284,104 @@ export function AdequacyProgressBars({ nutrients = [] }) {
   );
 }
 
+
 export function NutrientComparisonChart({ nutrients = [], width = 560, height = 220 }) {
   if (!nutrients.length) return null;
 
   const pad = { top: 18, right: 16, bottom: 42, left: 42 };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
-  const maxVal = Math.max(...nutrients.flatMap((n) => [Number(n.provided) || 0, Number(n.rda) || 0]), 1);
+
+  const MAX_PCT = 150;
   const gap = innerW / nutrients.length;
   const barW = Math.min(22, gap * 0.28);
-  const y = (value) => innerH - ((Number(value) || 0) / maxVal) * innerH;
-  const ticks = [0, 0.5, 1].map((factor) => ({ value: factor * maxVal, y: y(factor * maxVal) }));
+
+  const y = (pct) => innerH - (Math.min(pct, MAX_PCT) / MAX_PCT) * innerH;
+
+  const ticks = [0, 50, 100, 150].map((pct) => ({ pct, y: y(pct) }));
+
+  const colorFor = (pct) =>
+    pct >= 100 ? '#22c55e' :
+    pct >= 75  ? '#3b82f6' :
+    pct >= 50  ? '#f97316' :
+                 '#ef4444';
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ display: 'block' }}>
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ display: "block" }}>
       <g transform={`translate(${pad.left},${pad.top})`}>
+
+        {/* 100% RDA reference line */}
+        <line
+          x1={0} y1={y(100)} x2={innerW} y2={y(100)}
+          stroke="#22c55e" strokeWidth={1.5} strokeDasharray="6 3" opacity={0.6}
+        />
+
+        {/* Grid + Y-axis labels */}
         {ticks.map((tick) => (
-          <g key={tick.value}>
-            <line x1={0} y1={tick.y} x2={innerW} y2={tick.y} stroke="var(--border)" strokeWidth={1} strokeDasharray="4 4" />
+          <g key={tick.pct}>
+            {tick.pct !== 100 && (
+              <line
+                x1={0} y1={tick.y} x2={innerW} y2={tick.y}
+                stroke="var(--border)" strokeWidth={1} strokeDasharray="4 4"
+              />
+            )}
             <text x={-8} y={tick.y + 4} fontSize={9} fill="var(--text-muted)" textAnchor="end">
-              {Math.round(tick.value)}
+              {tick.pct}%
             </text>
           </g>
         ))}
 
+        {/* Bars */}
         {nutrients.map((nutrient, index) => {
           const center = index * gap + gap / 2;
-          const providedH = innerH - y(nutrient.provided);
-          const rdaH = innerH - y(nutrient.rda);
-          const adequate = (Number(nutrient.adequacy) || 0) >= 90;
+          const pct = Math.max(0, Number(nutrient.adequacy) || 0); // ← just use adequacy directly
+          const color = colorFor(pct);
+          const barH = innerH - y(pct);
 
           return (
             <g key={nutrient.nutrient}>
+              {/* RDA ghost bar */}
               <rect
-                x={center - barW - 2}
-                y={y(nutrient.rda)}
-                width={barW}
-                height={rdaH}
-                rx={3}
-                fill="var(--bg-hover)"
-                stroke="var(--border)"
+                x={center - barW / 2} y={y(100)}
+                width={barW} height={innerH - y(100)}
+                rx={3} fill="var(--bg-hover)" stroke="var(--border)" strokeWidth={1}
               />
+              {/* Provided bar */}
               <rect
-                x={center + 2}
-                y={y(nutrient.provided)}
-                width={barW}
-                height={providedH}
-                rx={3}
-                fill={adequate ? 'var(--accent)' : 'var(--amber)'}
-                opacity={0.9}
+                x={center - barW / 2} y={y(pct)}
+                width={barW} height={barH}
+                rx={3} fill={color} opacity={0.88}
               />
-              <text x={center} y={innerH + 16} fontSize={9} fill="var(--text-muted)" textAnchor="middle">
-                {nutrient.shortLabel || nutrient.label?.slice(0, 3).toUpperCase() || nutrient.nutrient.slice(0, 3).toUpperCase()}
+              {/* % label above bar */}
+              {barH > 8 && (
+                <text
+                  x={center} y={y(pct) - 3}
+                  fontSize={8} fill={color} textAnchor="middle"
+                >
+                  {pct.toFixed(0)}%
+                </text>
+              )}
+              {/* X-axis label */}
+              <text
+                x={center} y={innerH + 16}
+                fontSize={9} fill="var(--text-muted)" textAnchor="middle"
+              >
+                {nutrient.shortLabel ||
+                  nutrient.label?.slice(0, 3).toUpperCase() ||
+                  nutrient.nutrient.slice(0, 3).toUpperCase()}
               </text>
             </g>
           );
         })}
 
+        {/* Legend */}
         <g transform={`translate(0, ${innerH + 29})`}>
           <rect x={0} y={0} width={10} height={10} rx={2} fill="var(--bg-hover)" stroke="var(--border)" />
-          <text x={14} y={8} fontSize={9} fill="var(--text-muted)">Required</text>
-          <rect x={78} y={0} width={10} height={10} rx={2} fill="var(--amber)" />
-          <text x={92} y={8} fontSize={9} fill="var(--text-muted)">Provided</text>
+          <text x={14} y={8} fontSize={9} fill="var(--text-muted)">RDA (100%)</text>
+          <rect x={90} y={0} width={10} height={10} rx={2} fill="#f97316" />
+          <text x={104} y={8} fontSize={9} fill="var(--text-muted)">Provided</text>
         </g>
+
       </g>
     </svg>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getStudentById } from '../api/students';
+import { getStudentById, notifyParent } from '../api/students';
 import { getClasses } from '../api/classes';
 import { getHealthRecordsByStudent } from '../api/health';
 import { getStudentReports } from '../api/nutrition';
@@ -26,6 +26,9 @@ import {
   Zap,
   RefreshCw,
   UtensilsCrossed,
+  BellRing,
+  Mail,
+  Phone,
 } from 'lucide-react';
 
 import {
@@ -53,6 +56,17 @@ function bmiColor(cat) {
   if (c.includes('normal')) return 'green';
   if (c.includes('overweight') || c.includes('obese')) return 'red';
 
+  return 'muted';
+}
+
+function malnutritionColor(label) {
+  if (!label) return 'muted';
+  const l = label.toLowerCase();
+  if (l === 'critical') return 'red';
+  if (l === 'high risk') return 'amber';
+  if (l === 'moderate risk') return 'amber';
+  if (l === 'safe') return 'green';
+  if (l === 'obese') return 'red';
   return 'muted';
 }
 
@@ -274,6 +288,25 @@ export default function StudentDetailPage() {
   const [analyzing, setAnalyzing] = useState(false);
 
   const [liveReport, setLiveReport] = useState(null);
+  const [notifying, setNotifying] = useState(false);
+
+  const handleNotify = async () => {
+    setNotifying(true);
+    try {
+      const res = await notifyParent(id);
+      const { channels } = res.data;
+      const parts = [];
+      if (channels?.email?.status === 'sent') parts.push('Email sent');
+      else if (channels?.email?.status === 'error') parts.push('Email failed');
+      if (channels?.sms?.status === 'sent') parts.push('SMS sent');
+      else if (channels?.sms?.status === 'error') parts.push('SMS failed');
+      toast(parts.length ? parts.join(' · ') : 'Alert dispatched', 'success');
+    } catch (err) {
+      toast(err.response?.data?.message || 'Failed to send alert', 'error');
+    } finally {
+      setNotifying(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -432,9 +465,15 @@ export default function StudentDetailPage() {
             </Badge>
 
             {latest && (
-              <Badge color={bmiColor(latest.bmi_category)}>
-                {latest.bmi_category}
-              </Badge>
+              <>
+                <Badge color={malnutritionColor(latest.malnutrition_label)}>
+                  {latest.malnutrition_label}
+                </Badge>
+
+                <Badge color={bmiColor(latest.bmi_category)} className="ml-1 text-[12px]">
+                  {latest.bmi_category}
+                </Badge>
+              </>
             )}
           </div>
 
@@ -471,17 +510,47 @@ export default function StudentDetailPage() {
               </span>
             )}
           </div>
+
+          {(student.parent_email || student.parent_phone) && (
+            <div className="flex gap-4 mt-2 text-xs text-[var(--text-muted)] flex-wrap">
+              {student.parent_email && (
+                <span className="flex items-center gap-1">
+                  <Mail size={11} />
+                  {student.parent_email}
+                </span>
+              )}
+              {student.parent_phone && (
+                <span className="flex items-center gap-1">
+                  <Phone size={11} />
+                  {student.parent_phone}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        {isTeacher && (
-          <Button
-            icon={Zap}
-            onClick={() => setShowAnalyze(true)}
-            disabled={meals.length === 0}
-          >
-            Analyze Meal
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {(latest?.malnutrition_label === 'Critical' || latest?.malnutrition_label === 'High Risk') &&
+            (student.parent_email || student.parent_phone) && (
+              <Button
+                variant="danger"
+                icon={BellRing}
+                loading={notifying}
+                onClick={handleNotify}
+              >
+                Notify Parent
+              </Button>
+          )}
+          {isTeacher && (
+            <Button
+              icon={Zap}
+              onClick={() => setShowAnalyze(true)}
+              disabled={meals.length === 0}
+            >
+              Analyze Meal
+            </Button>
+          )}
+        </div>
       </div>
     </Card>
 
@@ -560,9 +629,16 @@ export default function StudentDetailPage() {
                       ).toLocaleDateString('en-IN')}
                     </span>
 
-                    <Badge color={bmiColor(r.bmi_category)}>
-                      {r.bmi_category}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge color={bmiColor(r.bmi_category)}>
+                        {r.bmi_category}
+                      </Badge>
+                      {r.malnutrition_label && (
+                        <Badge color={malnutritionColor(r.malnutrition_label)} className="text-[11px]">
+                          {r.malnutrition_label}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-4 gap-2 text-xs">

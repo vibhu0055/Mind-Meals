@@ -6,6 +6,7 @@ import {
   deleteMeal,
   updateMeal,
   getIngredients,
+  getIngredientCategories,
   getMeals,
 } from '../api/meals';
 import { useAuth } from '../features/auth/AuthContext';
@@ -17,7 +18,7 @@ import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import { PageLoader, EmptyState, Spinner } from '../components/ui/Spinner';
 import PageHeader from '../components/layout/PageHeader';
-import { Eye, Leaf, Lock, Pencil, Plus, Search, Trash2, UtensilsCrossed, X, Zap, FlaskConical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, Layers, Leaf, Lock, Pencil, Plus, Search, Trash2, UtensilsCrossed, X, Zap, FlaskConical } from 'lucide-react';
 
 const DEFAULT_FOODS = [
   'rice raw milled',
@@ -41,46 +42,17 @@ function NutrientReferenceTable() {
   const [search, setSearch] = useState('');
   const [foods, setFoods] = useState([]);
   const [loading, setLoading] = useState(false);
-
+  const [allCategories, setAllCategories] = useState([]);
+  const [activeCategory, setActiveCategory] = useState(null);
   const debounceRef = useRef(null);
-
-  const loadFoods = async (searchTerm = '') => {
-    setLoading(true);
-
-    try {
-      const res = await getIngredients({
-        search: searchTerm,
-        limit: 50,
-      });
-
-      setFoods(res.data.ingredients || res.data || []);
-    } catch {
-      setFoods([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadDefaultFoods = async () => {
     setLoading(true);
-
     try {
       const responses = await Promise.all(
-        DEFAULT_FOODS.map((food) =>
-          getIngredients({
-            search: food,
-            limit: 1,
-          }),
-        ),
+        DEFAULT_FOODS.map((food) => getIngredients({ search: food, limit: 1 })),
       );
-
-      const items = responses
-        .map((res) => {
-          const data = res.data.ingredients || res.data || [];
-          return data[0];
-        })
-        .filter(Boolean);
-
+      const items = responses.map((res) => (res.data.ingredients || res.data || [])[0]).filter(Boolean);
       setFoods(items);
     } catch {
       setFoods([]);
@@ -89,80 +61,90 @@ function NutrientReferenceTable() {
     }
   };
 
+  const loadFoods = async (searchTerm = '', category = null) => {
+    setLoading(true);
+    try {
+      const params = { limit: 50 };
+      if (searchTerm) params.search = searchTerm;
+      if (category) params.category = category;
+      const res = await getIngredients(params);
+      setFoods(res.data.ingredients || res.data || []);
+    } catch {
+      setFoods([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    getIngredientCategories().then((r) => setAllCategories(r.data?.categories || [])).catch(() => {});
     loadDefaultFoods();
   }, []);
 
   const handleSearch = (event) => {
     const value = event.target.value;
-
     setSearch(value);
-
+    setActiveCategory(null);
     clearTimeout(debounceRef.current);
-
     debounceRef.current = setTimeout(() => {
-      if (!value.trim()) {
-        loadDefaultFoods();
-        return;
-      }
-
+      if (!value.trim()) { loadDefaultFoods(); return; }
       loadFoods(value);
     }, 400);
   };
 
+  const handleCategory = (cat) => {
+    if (activeCategory === cat) {
+      setActiveCategory(null);
+      setSearch('');
+      loadDefaultFoods();
+    } else {
+      setActiveCategory(cat);
+      setSearch('');
+      loadFoods('', cat);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden">
-
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
         <div className="w-7 h-7 rounded-lg bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
           <FlaskConical size={14} className="text-[var(--accent)]" />
         </div>
-
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-[var(--text-primary)]">
-            Nutrient Reference
-          </div>
-
-          <div className="text-[10px] text-[var(--text-muted)]">
-            Per 100g
-          </div>
+          <div className="text-sm font-semibold text-[var(--text-primary)]">Nutrient Reference</div>
+          <div className="text-[10px] text-[var(--text-muted)]">Per 100g</div>
         </div>
       </div>
 
       {/* Search */}
       <div className="p-3 border-b border-[var(--border)]">
-        <Input
-          placeholder="Search food..."
-          value={search}
-          onChange={handleSearch}
-          icon={Search}
-        />
+        <Input placeholder="Search food..." value={search} onChange={handleSearch} icon={Search} />
       </div>
 
+      {/* Category pills */}
+      {allCategories.length > 0 && (
+        <div className="px-3 py-2 border-b border-[var(--border)] flex flex-wrap gap-1.5">
+          {allCategories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => handleCategory(cat)}
+              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                activeCategory === cat
+                  ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
+                  : 'bg-[var(--bg-hover)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Table header */}
-      <div className="
-        grid
-        grid-cols-[2fr_repeat(6,minmax(55px,1fr))]
-        gap-0
-        px-3
-        py-2
-        bg-[var(--bg-hover)]
-        border-b
-        border-[var(--border)]
-      ">
+      <div className="grid grid-cols-[2fr_repeat(6,minmax(55px,1fr))] gap-0 px-3 py-2 bg-[var(--bg-hover)] border-b border-[var(--border)]">
         {['Food', 'kcal', 'Pro', 'Carb', 'Fat', 'Fe', 'Ca'].map((h, i) => (
-          <div
-            key={h}
-            className={`
-              text-[10px]
-              font-semibold
-              uppercase
-              tracking-wide
-              text-[var(--text-muted)]
-              ${i === 0 ? '' : 'text-right'}
-            `}
-          >
+          <div key={h} className={`text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)] ${i === 0 ? '' : 'text-right'}`}>
             {h}
           </div>
         ))}
@@ -170,97 +152,38 @@ function NutrientReferenceTable() {
 
       {/* Rows */}
       <div className="flex-1 overflow-y-auto">
-
         {loading ? (
-          <div className="flex justify-center py-8">
-            <Spinner size={18} />
-          </div>
+          <div className="flex justify-center py-8"><Spinner size={18} /></div>
         ) : foods.length === 0 ? (
-          <div className="text-xs text-[var(--text-muted)] text-center py-8">
-            No foods found
-          </div>
+          <div className="text-xs text-[var(--text-muted)] text-center py-8">No foods found</div>
         ) : (
           foods.map((food, i) => (
-            <div
-              key={food.id}
-              className={`
-                grid
-                grid-cols-[2fr_repeat(6,minmax(55px,1fr))]
-                gap-0
-                px-3
-                py-2
-                transition-colors
-                hover:bg-[var(--accent-dim)]
-                ${i % 2 === 0 ? '' : 'bg-[var(--bg-hover)]'}
-              `}
-            >
-              {/* Food */}
+            <div key={food.id} className={`grid grid-cols-[2fr_repeat(6,minmax(55px,1fr))] gap-0 px-3 py-2 transition-colors hover:bg-[var(--accent-dim)] ${i % 2 === 0 ? '' : 'bg-[var(--bg-hover)]'}`}>
               <div className="truncate pr-2">
-                <div className="text-[11px] font-medium text-[var(--text-primary)] truncate">
-                  {ingredientName(food)}
-                </div>
-
+                <div className="text-[11px] font-medium text-[var(--text-primary)] truncate">{ingredientName(food)}</div>
                 {ingredientCategory(food) && (
-                  <div className="text-[9px] text-[var(--text-muted)] truncate">
-                    {ingredientCategory(food)}
-                  </div>
+                  <div className="text-[9px] text-[var(--text-muted)] truncate">{ingredientCategory(food)}</div>
                 )}
               </div>
-
-              {/* kcal */}
-              <div className="text-[11px] text-right mono text-[var(--amber)]">
-                {food.calories_per_100g ?? '-'}
-              </div>
-
-              {/* protein */}
-              <div className="text-[11px] text-right mono text-[var(--blue)]">
-                {food.protein_per_100g ?? '-'}
-              </div>
-
-              {/* carbs */}
-              <div className="text-[11px] text-right mono text-[var(--text-secondary)]">
-                {food.carbs_per_100g ?? '-'}
-              </div>
-
-              {/* fat */}
-              <div className="text-[11px] text-right mono text-[var(--text-muted)]">
-                {food.fat_per_100g ?? '-'}
-              </div>
-
-              {/* iron */}
-              <div className="text-[11px] text-right mono text-[var(--text-muted)]">
-                {food.iron_mg_per_100g ?? '-'}
-              </div>
-
-              {/* calcium */}
-              <div className="text-[11px] text-right mono text-[var(--text-muted)]">
-                {food.calcium_mg_per_100g ?? '-'}
-              </div>
+              <div className="text-[11px] text-right mono text-[var(--amber)]">{food.calories_per_100g ?? '-'}</div>
+              <div className="text-[11px] text-right mono text-[var(--blue)]">{food.protein_per_100g ?? '-'}</div>
+              <div className="text-[11px] text-right mono text-[var(--text-secondary)]">{food.carbs_per_100g ?? '-'}</div>
+              <div className="text-[11px] text-right mono text-[var(--text-muted)]">{food.fat_per_100g ?? '-'}</div>
+              <div className="text-[11px] text-right mono text-[var(--text-muted)]">{food.iron_mg_per_100g ?? '-'}</div>
+              <div className="text-[11px] text-right mono text-[var(--text-muted)]">{food.calcium_mg_per_100g ?? '-'}</div>
             </div>
           ))
         )}
-
       </div>
 
       {/* Legend */}
       <div className="px-3 py-2 border-t border-[var(--border)] flex flex-wrap gap-x-3 gap-y-1">
-        {[
-          ['kcal', 'Calories'],
-          ['Pro', 'Protein (g)'],
-          ['Carb', 'Carbs (g)'],
-          ['Fat', 'Fat (g)'],
-          ['Fe', 'Iron (mg)'],
-          ['Ca', 'Calcium (mg)'],
-        ].map(([short, full]) => (
-          <span
-            key={short}
-            className="text-[9px] text-[var(--text-muted)]"
-          >
+        {[['kcal','Calories'],['Pro','Protein (g)'],['Carb','Carbs (g)'],['Fat','Fat (g)'],['Fe','Iron (mg)'],['Ca','Calcium (mg)']].map(([short, full]) => (
+          <span key={short} className="text-[9px] text-[var(--text-muted)]">
             <span className="font-semibold">{short}</span> = {full}
           </span>
         ))}
       </div>
-
     </div>
   );
 }
@@ -359,22 +282,41 @@ function StepInfo({ form, setForm, errors }) {
 function StepIngredients({ ingredients, setIngredients }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const [catResults, setCatResults] = useState([]);
+  const [activeCat, setActiveCat] = useState(null);
+  const [catIngredients, setCatIngredients] = useState([]);
+  const [loadingCat, setLoadingCat] = useState(false);
+  const [allCategories, setAllCategories] = useState([]);
   const [searching, setSearching] = useState(false);
   const [qty, setQty] = useState({});
   const debounceRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    getIngredientCategories().then((r) => setAllCategories(r.data?.categories || [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setResults([]); setCatResults([]); setActiveCat(null); setCatIngredients([]);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const search = async (term) => {
-    if (!term.trim()) {
-      setResults([]);
-      return;
-    }
-
+    if (!term.trim()) { setResults([]); setCatResults([]); return; }
     setSearching(true);
     try {
-      const res = await getIngredients({ search: term, limit: 10 });
+      const res = await getIngredients({ search: term, limit: 8 });
+      const termLower = term.toLowerCase();
       setResults(res.data.ingredients || res.data || []);
+      setCatResults(allCategories.filter((c) => c.toLowerCase().includes(termLower)).slice(0, 4));
+      setActiveCat(null);
     } catch {
-      setResults([]);
+      setResults([]); setCatResults([]);
     } finally {
       setSearching(false);
     }
@@ -383,32 +325,31 @@ function StepIngredients({ ingredients, setIngredients }) {
   const handleQuery = (event) => {
     const value = event.target.value;
     setQuery(value);
+    setActiveCat(null);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => search(value), 400);
   };
 
-  const addIngredient = async (ingredient) => {
+  const openCategory = async (cat) => {
+    setActiveCat(cat);
+    setLoadingCat(true);
+    try {
+      const res = await getIngredients({ category: cat, limit: 20 });
+      setCatIngredients(res.data.ingredients || []);
+    } catch { setCatIngredients([]); }
+    finally { setLoadingCat(false); }
+  };
+
+  const addIngredient = (ingredient) => {
     const grams = parseFloat(qty[ingredient.id] || 100);
     if (!grams || grams <= 0) return;
-
-
     setIngredients((current) => {
       const existing = current.find((item) => item.ingredient_id === ingredient.id);
-      const next = {
-        ...ingredient,
-        ingredient_id: ingredient.id,
-        quantity_g: grams,
-        display_name: ingredientName(ingredient),
-      };
-
-      if (existing) {
-        return current.map((item) => (item.ingredient_id === ingredient.id ? { ...item, ...next } : item));
-      }
-
+      const next = { ...ingredient, ingredient_id: ingredient.id, quantity_g: grams, display_name: ingredientName(ingredient) };
+      if (existing) return current.map((item) => (item.ingredient_id === ingredient.id ? { ...item, ...next } : item));
       return [...current, next];
     });
-
-    setResults([]);
+    setResults([]); setCatResults([]); setActiveCat(null); setCatIngredients([]);
     setQuery('');
   };
 
@@ -422,60 +363,111 @@ function StepIngredients({ ingredients, setIngredients }) {
     );
   };
 
+  const hasDropdown = results.length > 0 || catResults.length > 0 || activeCat;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="text-xs text-[var(--text-muted)] mb-1">Step 2 of 2 - Add Ingredients</div>
 
-      <div className="relative">
+      <div className="relative" ref={dropdownRef}>
         <Input
-          label="Search Ingredient"
-          placeholder="e.g. rice, dal, milk..."
+          label="Search Ingredient or Category"
+          placeholder="e.g. rice, dal, Cereal..."
           value={query}
           onChange={handleQuery}
           icon={Search}
         />
-        {searching && (
-          <div className="absolute right-3 top-9">
-            <Spinner size={14} />
-          </div>
-        )}
-        {results.length > 0 && (
-          <div className="absolute z-10 w-full top-full mt-1 bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius)] shadow-xl overflow-hidden">
-            {results.map((result) => (
-              <div
-                key={result.id}
-                className="flex items-start justify-between gap-3 px-4 py-2.5 hover:bg-[var(--bg-hover)] cursor-pointer"
-                onClick={() => addIngredient(result)}
-              >
-                <div className="min-w-0">
-                  <div className="text-sm text-[var(--text-primary)] truncate">{ingredientName(result)}</div>
-                  {ingredientCategory(result) && (
-                    <div className="text-xs text-[var(--text-muted)]">{ingredientCategory(result)}</div>
-                  )}
-                  <NutrientPreview ingredient={result} />
+        {searching && <div className="absolute right-3 top-9"><Spinner size={14} /></div>}
+
+        {hasDropdown && (
+          <div className="absolute z-20 w-full top-full mt-1 bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius)] shadow-xl overflow-hidden max-h-72 overflow-y-auto">
+            {activeCat ? (
+              <>
+                <div
+                  className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-hover)] border-b border-[var(--border)] cursor-pointer hover:opacity-80"
+                  onClick={() => { setActiveCat(null); setCatIngredients([]); }}
+                >
+                  <ChevronLeft size={13} className="text-[var(--text-muted)]" />
+                  <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{activeCat}</span>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <input
-                    type="number"
-                    placeholder="g"
-                    className="w-16 bg-[var(--bg-card)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text-primary)] focus:outline-none"
-                    value={qty[result.id] || ''}
-                    onChange={(event) => setQty((current) => ({ ...current, [result.id]: event.target.value }))}
-                    onClick={(event) => event.stopPropagation()}
-                  />
-                  <span className="text-xs text-[var(--text-muted)]">g</span>
-                  <button
-                    className="text-xs bg-[var(--accent-dim)] text-[var(--accent)] border border-[var(--accent-border)] rounded px-2 py-1"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      addIngredient(result);
-                    }}
+                {loadingCat ? (
+                  <div className="flex justify-center py-5"><Spinner size={16} /></div>
+                ) : catIngredients.map((r) => (
+                  <div key={r.id}
+                    className="flex items-start justify-between gap-3 px-4 py-2.5 hover:bg-[var(--bg-hover)] cursor-pointer border-b border-[var(--border)] last:border-0"
+                    onClick={() => addIngredient(r)}
                   >
-                    Add
-                  </button>
-                </div>
-              </div>
-            ))}
+                    <div className="min-w-0">
+                      <div className="text-sm text-[var(--text-primary)] truncate">{ingredientName(r)}</div>
+                      <div className="text-xs text-[var(--text-muted)]">{r.calories_per_100g} kcal · {r.protein_per_100g}g protein</div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <input type="number" placeholder="g"
+                        className="w-16 bg-[var(--bg-card)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text-primary)] focus:outline-none"
+                        value={qty[r.id] || ''}
+                        onChange={(e) => setQty((c) => ({ ...c, [r.id]: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span className="text-xs text-[var(--text-muted)]">g</span>
+                      <button className="text-xs bg-[var(--accent-dim)] text-[var(--accent)] border border-[var(--accent-border)] rounded px-2 py-1"
+                        onClick={(e) => { e.stopPropagation(); addIngredient(r); }}>Add</button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                {results.length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 bg-[var(--bg-hover)] border-b border-[var(--border)]">
+                      <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Ingredients</span>
+                    </div>
+                    {results.map((result) => (
+                      <div key={result.id}
+                        className="flex items-start justify-between gap-3 px-4 py-2.5 hover:bg-[var(--bg-hover)] cursor-pointer border-b border-[var(--border)] last:border-0"
+                        onClick={() => addIngredient(result)}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm text-[var(--text-primary)] truncate">{ingredientName(result)}</div>
+                          {ingredientCategory(result) && <div className="text-xs text-[var(--text-muted)]">{ingredientCategory(result)}</div>}
+                          <NutrientPreview ingredient={result} />
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <input type="number" placeholder="g"
+                            className="w-16 bg-[var(--bg-card)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text-primary)] focus:outline-none"
+                            value={qty[result.id] || ''}
+                            onChange={(e) => setQty((c) => ({ ...c, [result.id]: e.target.value }))}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span className="text-xs text-[var(--text-muted)]">g</span>
+                          <button className="text-xs bg-[var(--accent-dim)] text-[var(--accent)] border border-[var(--accent-border)] rounded px-2 py-1"
+                            onClick={(e) => { e.stopPropagation(); addIngredient(result); }}>Add</button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {catResults.length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 bg-[var(--bg-hover)] border-b border-[var(--border)]">
+                      <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Categories</span>
+                    </div>
+                    {catResults.map((cat) => (
+                      <div key={cat} onClick={() => openCategory(cat)}
+                        className="flex items-center justify-between px-4 py-2.5 hover:bg-[var(--bg-hover)] cursor-pointer border-b border-[var(--border)] last:border-0">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
+                            <Layers size={11} className="text-[var(--accent)]" />
+                          </div>
+                          <span className="text-sm text-[var(--text-primary)]">{cat}</span>
+                        </div>
+                        <ChevronRight size={13} className="text-[var(--text-muted)] flex-shrink-0" />
+                      </div>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
