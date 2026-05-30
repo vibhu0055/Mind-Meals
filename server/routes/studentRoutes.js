@@ -6,7 +6,8 @@ import {
   getStudentsByClass,
   getStudentById,
   updateStudent,
-  deleteStudent
+  deleteStudent,
+  notifyParent,
 } from "../controllers/studentController.js";
 
 const router = express.Router();
@@ -14,10 +15,12 @@ const router = express.Router();
 // CREATE
 router.post("/add", protect(['teacher']), addStudent);
 
-//Update
+// UPDATE / DELETE
 router.patch('/:id', protect(['teacher']), updateStudent);
-//Delete
 router.delete('/:id', protect(['teacher']), deleteStudent);
+
+// NOTIFY PARENT — send health report via email / SMS
+router.post('/:id/notify', protect(['school', 'teacher']), notifyParent);
 
 // READ
 router.get("/", protect(['teacher', 'school']), getStudents);

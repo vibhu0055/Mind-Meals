@@ -36,6 +36,7 @@ export const rdaTables = async () => {
         age_group   VARCHAR(10),
         gender      VARCHAR(10),
         bmi_category VARCHAR(50),
+        who_category VARCHAR(30),
         bmi_flag    BOOLEAN DEFAULT FALSE,
 
         -- what the student received from this meal

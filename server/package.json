@@ -7,7 +7,6 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "seed": "node scripts/importIFCTjson.js"
-
   },
   "keywords": [],
   "author": "",
@@ -20,6 +19,7 @@
     "express": "^5.2.1",
     "ifct2017": "^2.0.15",
     "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^8.0.9",
     "pg": "^8.20.0"
   },
   "devDependencies": {

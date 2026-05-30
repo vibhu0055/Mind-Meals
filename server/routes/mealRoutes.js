@@ -9,7 +9,9 @@ import {
   getMeals,
   getMealById,
   addMealIngredients,
+  updateMealIngredient,
   deleteMealIngredient,
+  clearMealIngredients,
   distributeMeal,
   getMealDistribution,
   getMealSummary,
@@ -77,12 +79,28 @@ router.post(
   addMealIngredients
 );
 
-// Delete an ingredient from a meal
+// Clear ALL ingredients (must be before /:ingredient_id to avoid Express matching 'ingredients' as a param)
+router.delete(
+  '/:meal_id/ingredients',
+  protect(['school', 'teacher']),
+  requireMealPermission,
+  clearMealIngredients
+);
+
+// Update quantity of a single ingredient
+router.put(
+  '/:meal_id/ingredients/:ingredient_id',
+  protect(['school', 'teacher']),
+  requireMealPermission,
+  updateMealIngredient
+);
+
+// Delete a single ingredient from a meal
 router.delete(
   '/:meal_id/ingredients/:ingredient_id',
   protect(['school', 'teacher']),
   requireMealPermission,
-  deleteMealIngredient,
+  deleteMealIngredient
 );
 
 // ── Distribution ──────────────────────────────────────────────

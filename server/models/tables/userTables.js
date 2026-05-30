@@ -58,13 +58,16 @@ export const userTables = async () => {
     // 5. STUDENTS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS students (
-        id SERIAL PRIMARY KEY,
-        school_id INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-        class_id INT REFERENCES classes(id) ON DELETE SET NULL,
-        name VARCHAR(150) NOT NULL,
-        age INT NOT NULL,
-        gender VARCHAR(10),
-        created_at TIMESTAMP DEFAULT NOW()
+        id             SERIAL PRIMARY KEY,
+        school_id      INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        class_id       INT REFERENCES classes(id) ON DELETE SET NULL,
+        name           VARCHAR(150) NOT NULL,
+        age            INT NOT NULL,
+        date_of_birth  DATE,
+        gender         VARCHAR(10),
+        parent_email   VARCHAR(150),
+        parent_phone   VARCHAR(20),
+        created_at     TIMESTAMP DEFAULT NOW()
       );
     `);
 
@@ -81,16 +84,21 @@ export const userTables = async () => {
     // 7. HEALTH RECORDS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS health_records (
-        id SERIAL PRIMARY KEY,
-        student_id INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-        teacher_id INT REFERENCES users(id) ON DELETE SET NULL,
-        height_cm DECIMAL(5,2),
-        weight_kg DECIMAL(5,2),
-        muac_cm DECIMAL(5,2),
-        bmi DECIMAL(5,2),
-        bmi_category VARCHAR(50),
-        recorded_at DATE DEFAULT CURRENT_DATE,
-        created_at TIMESTAMP DEFAULT NOW()
+        id                       SERIAL PRIMARY KEY,
+        student_id               INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        teacher_id               INT REFERENCES users(id) ON DELETE SET NULL,
+        height_cm                DECIMAL(5,2),
+        weight_kg                DECIMAL(5,2),
+        muac_cm                  DECIMAL(5,2),
+        bmi                      DECIMAL(5,2),
+        bmi_category             VARCHAR(50),
+        zscore                   DECIMAL(6,3),
+        who_category             VARCHAR(30) CHECK (who_category IN (
+                                   'severe_thinness','thinness','moderate_risk','normal','obese'
+                                 )),
+        age_months_at_measurement INT,
+        recorded_at              DATE DEFAULT CURRENT_DATE,
+        created_at               TIMESTAMP DEFAULT NOW()
       );
     `);
 

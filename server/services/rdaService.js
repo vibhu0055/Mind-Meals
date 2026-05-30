@@ -12,6 +12,7 @@
 // =============================================================
 
 import pool from '../database/database.js';
+import { toLabel } from '../utils/Wholms.js';
 import { getAgeGroup } from '../database/seedRDA.js';
 
 const NUTRIENTS = ['calories', 'protein', 'carbs', 'fat', 'fiber', 'iron', 'calcium'];
@@ -38,10 +39,10 @@ export const generateStudentReport = async (student_id, meal_id) => {
   const studentRes = await pool.query(
     `SELECT
        s.id, s.name, s.age, s.gender, s.class_id, s.school_id,
-       hr.bmi_category
+       hr.bmi_category, hr.who_category
      FROM students s
      LEFT JOIN LATERAL (
-       SELECT bmi_category FROM health_records
+       SELECT bmi_category, who_category FROM health_records
        WHERE student_id = s.id
        ORDER BY recorded_at DESC, id DESC LIMIT 1
      ) hr ON true
@@ -159,8 +160,11 @@ export const generateStudentReport = async (student_id, meal_id) => {
   for (const n of NUTRIENTS) gap[n] = parseFloat((received[n] - rda[n]).toFixed(3));
 
   const bmi_category  = student.bmi_category || null;
-  const isUnderweight = (bmi_category || '').toLowerCase().includes('underweight');
-  const bmi_flag      = isUnderweight && getNutrientStatus(received.calories, rda.calories) === 'deficient';
+  const who_category  = student.who_category  || null;
+  // Flag if student has any degree of thinness (WHO) AND is calorie deficient
+  const THINNESS_CATEGORIES = ['severe_thinness', 'thinness', 'moderate_risk'];
+  const isThin        = THINNESS_CATEGORIES.includes(who_category);
+  const bmi_flag      = isThin && getNutrientStatus(received.calories, rda.calories) === 'deficient';
   const overall_status = getNutrientStatus(received.calories, rda.calories);
 
   const nutrient_breakdown = NUTRIENTS.map((n) => {
@@ -179,7 +183,7 @@ export const generateStudentReport = async (student_id, meal_id) => {
   // 9. Upsert report
   await pool.query(
     `INSERT INTO student_nutrition_reports (
-       student_id, meal_id, age_group, gender, bmi_category, bmi_flag,
+       student_id, meal_id, age_group, gender, bmi_category, who_category, bmi_flag,
        received_calories, received_protein, received_carbs,
        received_fat, received_fiber, received_iron, received_calcium,
        rda_calories, rda_protein, rda_carbs,
@@ -188,10 +192,10 @@ export const generateStudentReport = async (student_id, meal_id) => {
        gap_fat, gap_fiber, gap_iron, gap_calcium,
        overall_status
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
      ON CONFLICT (student_id, meal_id) DO UPDATE SET
        age_group=EXCLUDED.age_group, gender=EXCLUDED.gender,
-       bmi_category=EXCLUDED.bmi_category, bmi_flag=EXCLUDED.bmi_flag,
+       bmi_category=EXCLUDED.bmi_category, who_category=EXCLUDED.who_category, bmi_flag=EXCLUDED.bmi_flag,
        received_calories=EXCLUDED.received_calories, received_protein=EXCLUDED.received_protein,
        received_carbs=EXCLUDED.received_carbs, received_fat=EXCLUDED.received_fat,
        received_fiber=EXCLUDED.received_fiber, received_iron=EXCLUDED.received_iron,
@@ -207,7 +211,7 @@ export const generateStudentReport = async (student_id, meal_id) => {
        overall_status=EXCLUDED.overall_status,
        generated_at=NOW()`,
     [
-      student_id, meal_id, age_group, gender, bmi_category, bmi_flag,
+      student_id, meal_id, age_group, gender, bmi_category, who_category, bmi_flag,
       received.calories, received.protein, received.carbs,
       received.fat, received.fiber, received.iron, received.calcium,
       rda.calories, rda.protein, rda.carbs,
@@ -227,6 +231,7 @@ export const generateStudentReport = async (student_id, meal_id) => {
     age_group,
     gender,
     bmi_category,
+    malnutrition_label: toLabel(who_category) || null,
     bmi_flag,
     overall_status,
     meal_fraction:  LUNCH_FRACTION,
