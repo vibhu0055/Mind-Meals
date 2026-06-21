@@ -3,10 +3,11 @@ node_modules/
 
 # Backend dependencies (server)
 server/node_modules/
+server/.env 
 
 # Frontend dependencies (web)
 web/node_modules/
-
+web/.env 
 # Environment files-
 .env
 server/.env
