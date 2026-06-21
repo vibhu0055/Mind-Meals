@@ -7,9 +7,6 @@
 //
 // Each channel (email / SMS) is gated by its own env vars —
 // the server runs fine with neither configured.
-//
-// Dependencies — install when ready to go live:
-//   npm install nodemailer twilio
 // =============================================================
 
 // ── Lazy transport loaders ────────────────────────────────────────────────────
@@ -50,37 +47,22 @@ export const ALERT_CATEGORIES = ['severe_thinness', 'thinness'];
 
 const SEVERITY = {
   severe_thinness: { label: 'Critical Malnutrition', emoji: '🔴' },
-  thinness:        { label: 'Moderate Malnutrition',  emoji: '🟡'},
+  thinness:        { label: 'Moderate Malnutrition',  emoji: '🟡' },
 };
 
 // ── Message formatters ────────────────────────────────────────────────────────
 
 /**
- * SMS — kept concise (fits in ~2 SMS segments).
- * Includes severity, what it means, and the child's full daily RDA.
+ * SMS — trimmed to fit within ~2 Twilio segments (~306 chars).
+ * Nudges the parent and points them to the email for full details.
  */
 export const formatAlertSMS = (studentName, whoCategory, rda, bmi, recordedAt) => {
   const sev  = SEVERITY[whoCategory];
-  const date = new Date(recordedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const date = new Date(recordedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
-  return [
-    `${sev.emoji} MealMind Health Alert`,
-    `Student: ${studentName}`,
-    `Status: ${sev.label} (measured on ${date})`,
-    `BMI: ${bmi}`,
-    ``,
-    `Your child needs these nutrients DAILY:`,
-    `• Calories : ${rda.calories_kcal} kcal`,
-    `• Protein  : ${rda.protein_g} g`,
-    `• Carbs    : ${rda.carbs_g} g`,
-    `• Fat      : ${rda.fat_g} g`,
-    `• Iron     : ${rda.iron_mg} mg`,
-    `• Calcium  : ${rda.calcium_mg} mg`,
-    ``,
-    `Please ensure your child eats calorie-rich, protein-dense meals at home (eggs, dal, milk, rice, nuts).`,
-    `Consult doctor if this persists.`,
-    `– MealMind, PM-POSHAN Tracker`,
-  ].join('\n');
+  // No emojis — they trigger UCS-2 encoding and drop the limit to 70 chars/segment.
+  // This message stays plain GSM-7 and fits within 160 characters.
+  return `MealMind: ${studentName} flagged for ${sev.label} (BMI ${bmi}, ${date}). Increase eggs, dal, milk, rice and other nutrient-rich foods.`;
 };
 
 /**
@@ -91,8 +73,8 @@ export const formatAlertEmail = (studentName, whoCategory, rda, bmi, recordedAt,
   const sev  = SEVERITY[whoCategory];
   const date = new Date(recordedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
-  const headerColor   = whoCategory === 'severe_thinness' ? '#c0392b' : '#d68910';
-  const headerBg      = whoCategory === 'severe_thinness' ? '#fdedec' : '#fef9e7';
+  const headerColor = whoCategory === 'severe_thinness' ? '#c0392b' : '#d68910';
+  const headerBg    = whoCategory === 'severe_thinness' ? '#fdedec' : '#fef9e7';
 
   const rdaRows = [
     ['Calories', `${rda.calories_kcal} kcal`, 'Rice, roti, potato, banana'],
@@ -125,7 +107,7 @@ export const formatAlertEmail = (studentName, whoCategory, rda, bmi, recordedAt,
   <div style="background:${headerBg};border-left:5px solid ${headerColor};padding:16px 28px;margin:0">
     <p style="margin:0;font-size:16px;font-weight:700;color:${headerColor}">${sev.emoji} ${sev.label} Detected</p>
     <p style="margin:6px 0 0;color:#555;font-size:14px">
-      A recent health check on <strong>${date}</strong> for your child 
+      A recent health check on <strong>${date}</strong> for your child
       <strong>${studentName}</strong>${className ? ` (${className})` : ''} has flagged a nutritional concern.
       BMI recorded: <strong>${bmi}</strong>.
     </p>
@@ -248,7 +230,7 @@ export const sendMalnutritionAlert = async ({
       try {
         await client.messages.create({
           from: process.env.TWILIO_FROM_NUMBER,
-          to:   parentPhone,
+          to:   `+91${parentPhone}`,
           body: formatAlertSMS(studentName, whoCategory, rda, bmi, recordedAt),
         });
         result.sms = 'sent';
