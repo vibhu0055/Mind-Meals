@@ -1,5 +1,5 @@
 import pool from "../database/database.js";
-import { toLabel, LABEL_TO_WHO, VALID_LABELS } from "../utils/whoLMS.js";
+import { toLabel, LABEL_TO_WHO, VALID_LABELS } from "../utils/Wholms.js";
 import {
   checkClassBelongsToSchool,
   checkTeacherAssignment
