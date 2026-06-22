@@ -104,7 +104,7 @@ export default function TeachersPage() {
   if (loading) return <PageLoader />;
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <PageHeader
         title="Teachers"
         description={`${teachers.length} teacher${teachers.length !== 1 ? 's' : ''} in your school`}

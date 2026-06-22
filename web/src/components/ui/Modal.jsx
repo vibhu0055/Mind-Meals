@@ -14,15 +14,14 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
       onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
-        className={`relative w-full ${widths[size]} bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius-lg)] shadow-2xl animate-fade-in`}
+        className={`relative w-full ${widths[size]} bg-[var(--bg-surface)] border border-[var(--border)] rounded-[var(--radius-lg)] shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
           <button
@@ -32,7 +31,6 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
             <X size={16} />
           </button>
         </div>
-        {/* Body */}
         <div className="px-6 py-5">{children}</div>
       </div>
     </div>

@@ -205,7 +205,7 @@ export default function StudentsPage() {
   if (loading) return <PageLoader />;
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <PageHeader
         title="Students"
         description={`${total} student${total !== 1 ? 's' : ''}${filterClass ? ' in selected class' : ''}` + (filterBmi ? ` · ${filterBmi}` : '') + (filterMalnutrition ? ` · ${filterMalnutrition}` : '')}
