@@ -4,33 +4,92 @@ import { useAuth } from '../../features/auth/AuthContext';
 import {
   LayoutDashboard, Users, BookOpen, UserSquare2,
   HeartPulse, UtensilsCrossed, BarChart3, LogOut,
-  ChevronRight, Leaf, Moon, Sun, ShieldAlert, Sparkles
+  Leaf, Moon, Sun, ShieldAlert, Sparkles, ChevronRight
 } from 'lucide-react';
 
 const schoolLinks = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/teachers', icon: UserSquare2, label: 'Teachers' },
-  { to: '/classes', icon: BookOpen, label: 'Classes' },
-  { to: '/students', icon: Users, label: 'Students' },
-  { to: '/at-risk', icon: ShieldAlert, label: 'At-Risk Students' },
-  { to: '/meals', icon: UtensilsCrossed, label: 'Meals' },
-  { to: '/meal-planner', icon: Sparkles, label: 'Meal Planner' },
-  { to: '/nutrition', icon: BarChart3, label: 'Nutrition' },
-
-
+  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'       },
+  { to: '/teachers',     icon: UserSquare2,     label: 'Teachers'        },
+  { to: '/classes',      icon: BookOpen,        label: 'Classes'         },
+  { to: '/students',     icon: Users,           label: 'Students'        },
+  { to: '/at-risk',      icon: ShieldAlert,     label: 'At-Risk Students'},
+  { to: '/meals',        icon: UtensilsCrossed, label: 'Meals'           },
+  { to: '/meal-planner', icon: Sparkles,        label: 'Meal Planner'    },
+  { to: '/nutrition',    icon: BarChart3,       label: 'Nutrition'       },
 ];
 
 const teacherLinks = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/students', icon: Users, label: 'Students' },
-  { to: '/health', icon: HeartPulse, label: 'Health Records' },
-  { to: '/at-risk', icon: ShieldAlert, label: 'At-Risk Students' },
-  { to: '/meals', icon: UtensilsCrossed, label: 'Meals' },
-  { to: '/meal-planner', icon: Sparkles, label: 'Meal Planner' },
-  { to: '/nutrition', icon: BarChart3, label: 'Nutrition' },
-
-
+  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'       },
+  { to: '/students',     icon: Users,           label: 'Students'        },
+  { to: '/health',       icon: HeartPulse,      label: 'Health Records'  },
+  { to: '/at-risk',      icon: ShieldAlert,     label: 'At-Risk Students'},
+  { to: '/meals',        icon: UtensilsCrossed, label: 'Meals'           },
+  { to: '/meal-planner', icon: Sparkles,        label: 'Meal Planner'    },
+  { to: '/nutrition',    icon: BarChart3,       label: 'Nutrition'       },
 ];
+
+const css = `
+  .mm-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 13px;
+    border-radius: 999px;
+    margin-bottom: 3px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    font-family: 'Sora', sans-serif;
+  }
+  .mm-nav-link:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .mm-nav-link.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: var(--accent-border);
+    font-weight: 600;
+    box-shadow: 0 0 0 1px var(--accent-border) inset, 0 2px 8px var(--accent-glow);
+  }
+  .mm-nav-link.active .mm-link-icon {
+    color: var(--accent) !important;
+  }
+  .mm-nav-link:hover .mm-link-icon {
+    color: var(--text-primary) !important;
+  }
+
+  .mm-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: background 0.15s ease, color 0.15s ease;
+    font-family: 'Sora', sans-serif;
+    text-align: left;
+    margin-bottom: 3px;
+  }
+  .mm-action-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .mm-action-btn.logout:hover {
+    background: var(--red-dim);
+    color: var(--red);
+  }
+`;
 
 export default function Sidebar() {
   const { user, logout, isSchool } = useAuth();
@@ -43,81 +102,131 @@ export default function Sidebar() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme((currentTheme) => currentTheme === 'light' ? 'dark' : 'light');
-  };
+  const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
+  const handleLogout = () => { logout(); navigate('/login'); };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const initials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : '??';
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-56 bg-[var(--bg-surface)] border-r border-[var(--border)] flex flex-col z-30">
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-[var(--border)]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[var(--accent)] flex items-center justify-center">
-            <Leaf size={16} className="text-[#0d0f14]" />
+    <>
+      <style>{css}</style>
+
+      <aside
+        style={{
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          height: '100vh',
+          width: 220,
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 30,
+          background: 'var(--bg-surface)',
+          borderRight: '1px solid var(--border)',
+          borderRadius: '0 18px 18px 0',
+          fontFamily: "'Sora', sans-serif",
+        }}
+      >
+        {/* ── Logo ── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 11,
+          padding: '18px 16px',
+          flexShrink: 0,
+        }}>
+          <div style={{
+            width: 34, height: 34,
+            borderRadius: '50%',
+            background: 'var(--accent-dim)',
+            border: '1.5px solid var(--accent-border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <Leaf size={15} style={{ color: 'var(--accent)' }} />
           </div>
           <div>
-            <div className="text-sm font-bold text-[var(--text-primary)] leading-none">MealMind</div>
-            <div className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.2px' }}>
+              MealMind
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)', letterSpacing: '0.9px', textTransform: 'uppercase', marginTop: 4 }}>
               {isSchool ? 'Admin' : 'Teacher'}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        <div className="flex flex-col gap-0.5">
+        {/* ── Nav ── */}
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '10px 8px', scrollbarWidth: 'none' }}>
+          <div style={{
+            fontSize: 9.5, fontWeight: 600, letterSpacing: '0.9px',
+            textTransform: 'uppercase', color: 'var(--text-muted)',
+            padding: '4px 13px 8px',
+          }}>
+            Menu
+          </div>
+
           {links.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius)] text-sm font-medium transition-all duration-150 group
-                ${isActive
-                  ? 'bg-[var(--accent-dim)] text-[var(--accent)] border border-[var(--accent-border)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
-                }`
-              }
+              className={({ isActive }) => `mm-nav-link${isActive ? ' active' : ''}`}
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={16} className={isActive ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'} />
-                  <span className="flex-1">{label}</span>
-                  {isActive && <ChevronRight size={12} className="text-[var(--accent)]" />}
+                  <Icon
+                    size={15}
+                    strokeWidth={isActive ? 2.2 : 1.8}
+                    className="mm-link-icon"
+                    style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', flexShrink: 0, transition: 'color 0.15s' }}
+                  />
+                  <span style={{ flex: 1 }}>{label}</span>
+                  {isActive && (
+                    <ChevronRight size={12} style={{ color: 'var(--accent)', opacity: 0.7, flexShrink: 0 }} />
+                  )}
                 </>
               )}
             </NavLink>
           ))}
-        </div>
-      </nav>
+        </nav>
 
-      {/* User section */}
-      <div className="px-3 pb-4 border-t border-[var(--border)] pt-3">
-        <div className="px-3 py-2.5 mb-2">
-          <div className="text-xs font-medium text-[var(--text-primary)] truncate">{user?.name}</div>
-          <div className="text-[11px] text-[var(--text-muted)] truncate">{user?.email}</div>
+        {/* ── Footer ── */}
+        <div style={{ padding: '10px 8px 14px', flexShrink: 0 }}>
+          {/* User info */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 13px 10px' }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: '50%',
+              background: 'var(--accent-dim)',
+              border: '1.5px solid var(--accent-border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 10.5, fontWeight: 700, color: 'var(--accent)',
+              flexShrink: 0, letterSpacing: '0.3px',
+            }}>
+              {initials}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.name ?? 'Unknown'}
+              </div>
+              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.email ?? ''}
+              </div>
+            </div>
+          </div>
+
+          <button onClick={toggleTheme} className="mm-action-btn"
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+            {theme === 'light'
+              ? <Moon size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+              : <Sun  size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
+            {theme === 'light' ? 'Dark mode' : 'Light mode'}
+          </button>
+
+          <button onClick={handleLogout} className="mm-action-btn logout">
+            <LogOut size={14} style={{ flexShrink: 0 }} />
+            Sign out
+          </button>
         </div>
-        <button
-          onClick={toggleTheme}
-          className="w-full flex items-center gap-3 px-3 py-2.5 mb-1 rounded-[var(--radius)] text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all duration-150"
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
-        >
-          {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
-          <span>{theme === 'light' ? 'Dark theme' : 'Light theme'}</span>
-        </button>
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius)] text-sm text-[var(--text-secondary)] hover:text-[var(--red)] hover:bg-[var(--red-dim)] transition-all duration-150"
-        >
-          <LogOut size={15} />
-          <span>Logout</span>
-        </button>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
