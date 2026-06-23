@@ -8,7 +8,6 @@ import Button from '../components/ui/Button';
 import { PageLoader, EmptyState, Spinner } from '../components/ui/Spinner';
 import {
   AdequacyProgressBars,
-  NutrientComparisonChart,
   PmPoshanComparisonChart,
   ScoreRing,
 } from '../components/ui/Charts';
@@ -371,8 +370,9 @@ function AddIngredientRow({ onAdd }) {
   );
 }
 
-function DistributionSection({ distribution }) {
-  if (!distribution) {
+function DistributionSection({ summary }) {
+  const per = summary?.per_student;
+  if (!per) {
     return (
       <EmptyState
         icon={Users}
@@ -383,12 +383,12 @@ function DistributionSection({ distribution }) {
   }
 
   const rows = [
-    ['per_student_calories', 'Calories', 'kcal'],
-    ['per_student_protein', 'Protein', 'g'],
-    ['per_student_carbs', 'Carbs', 'g'],
-    ['per_student_fat', 'Fat', 'g'],
-    ['per_student_iron', 'Iron', 'mg'],
-    ['per_student_calcium', 'Calcium', 'mg'],
+    ['calories', 'Calories', 'kcal'],
+    ['protein', 'Protein', 'g'],
+    ['carbs', 'Carbs', 'g'],
+    ['fat', 'Fat', 'g'],
+    ['iron', 'Iron', 'mg'],
+    ['calcium', 'Calcium', 'mg'],
   ];
 
   return (
@@ -398,14 +398,14 @@ function DistributionSection({ distribution }) {
           <Users size={14} className="text-[var(--accent)]" />
           <span className="text-sm font-semibold text-[var(--text-primary)]">Per-Student Allocation</span>
         </div>
-        <div className="text-xs text-[var(--text-muted)]">{distribution.total_students} students</div>
+        <div className="text-xs text-[var(--text-muted)]">{summary.student_count || 0} students</div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {rows.map(([key, label, unit]) => (
           <div key={key} className="bg-[var(--bg-hover)] rounded px-2.5 py-2">
             <div className="text-[10px] uppercase text-[var(--text-muted)]">{label}</div>
             <div className="text-sm font-semibold text-[var(--text-primary)] mono">
-              {formatNumber(Number(distribution[key]))}<span className="text-[10px] text-[var(--text-muted)] ml-0.5">{unit}</span>
+              {formatNumber(Number(per[key] ?? 0))}<span className="text-[10px] text-[var(--text-muted)] ml-0.5">{unit}</span>
             </div>
           </div>
         ))}
@@ -468,7 +468,6 @@ function PmPoshanSection({ pmPoshan }) {
               );
             })}
           </div>
-          <PmPoshanComparisonChart pmPoshan={pmPoshan} />
         </>
       )}
 
@@ -776,23 +775,19 @@ export default function MealDetailPage() {
             <NutrientInsightCards nutrients={insightNutrients} />
           </section>
 
-          <div className="grid grid-cols-2 gap-6">
-            <Card>
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 size={15} className="text-[var(--blue)]" />
-                <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Provided vs Required</h2>
-              </div>
-              <NutrientComparisonChart nutrients={insightNutrients} />
-            </Card>
-            <Card>
-              <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3 mt-3">
-                Automatic Distribution by Group
-              </h2>
-              <DistributionSection distribution={summary?.distribution ?? null} />
-            </Card>
-          </div>
 
           <div className="grid grid-cols-2 gap-6">
+            {/* Left column: PM Poshan + Distribution stacked */}
+            <div className="flex flex-col gap-6">
+              <section>
+                <PmPoshanSection pmPoshan={summary.pm_poshan} />
+              </section>
+              <Card>
+                <DistributionSection summary={summary} />
+              </Card>
+            </div>
+
+            {/* Right column: Ingredients spanning full height */}
             <section>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
@@ -829,10 +824,6 @@ export default function MealDetailPage() {
                   <Button variant="secondary" icon={Plus} onClick={startEditing}>Add Ingredients</Button>
                 )}
               </div>
-            </section>
-
-            <section>
-              <PmPoshanSection pmPoshan={summary.pm_poshan} />
             </section>
           </div>
 
