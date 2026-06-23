@@ -11,27 +11,14 @@ const NUTRIENTS = ['calories', 'protein', 'carbs', 'fat', 'fiber', 'iron', 'calc
 
 // ── Scoring weights — fallback if DB config missing ──────────
 export const SCORE_WEIGHTS_DEFAULT = {
-  calories: 0.20,
-  protein:  0.20,
-  iron:     0.20,
-  calcium:  0.20,
+  calories: 0.35,
+  protein:  0.35,
+  iron:     0.10,
+  calcium:  0.10,
   fiber:    0.10,
 };
 
-export const loadScoringWeights = async () => {
-  try {
-    const res = await pool.query(`SELECT nutrient, weight FROM meal_scoring_config`);
-    if (res.rows.length === 0) return { ...SCORE_WEIGHTS_DEFAULT };
-    const weights = {};
-    for (const row of res.rows) weights[row.nutrient] = parseFloat(row.weight);
-    for (const [k, v] of Object.entries(SCORE_WEIGHTS_DEFAULT)) {
-      if (weights[k] === undefined) weights[k] = v;
-    }
-    return weights;
-  } catch {
-    return { ...SCORE_WEIGHTS_DEFAULT };
-  }
-};
+export const loadScoringWeights = () => ({ ...SCORE_WEIGHTS_DEFAULT });
 
 // ── PM-POSHAN targets ─────────────────────────────────────────
 const PM_POSHAN = {
@@ -204,30 +191,43 @@ export const saveDistribution = async (meal_id, dist) => {
 
 // =============================================================
 // 4. MEAL SCORING
+//
+// Calories & protein are benchmarked against PM-POSHAN targets
+// (the government standard for what a school lunch must provide),
+// NOT against 40% of daily RDA which is unrealistically high for
+// a single school meal.
+//
+// PM-POSHAN targets used for scoring (averaged across levels):
+//   calories → 575 kcal  (midpoint of 450 primary / 700 upper-primary)
+//   protein  → 16 g      (midpoint of 12g / 20g)
+//
+// Micronutrients (iron, calcium, fiber) stay on the 40%-RDA
+// targets passed in via rdaTargets.
 // =============================================================
+const PM_POSHAN_SCORE_TARGETS = {
+  calories: 575,  // avg of 450 (primary) and 700 (upper-primary)
+  protein:  16,   // avg of 12g and 20g
+};
+
 export const scoreMeal = (mealNutrients, rdaTargets, weights = SCORE_WEIGHTS_DEFAULT) => {
   let scoreSum  = 0;
   let weightSum = 0;
-  let hasSevere = false;
   const breakdown = {};
 
   for (const [nutrient, weight] of Object.entries(weights)) {
     const provided = mealNutrients[nutrient] || 0;
-    const rda      = rdaTargets[nutrient]    || 1;
-    const adequacy = Math.min((provided / rda) * 100, 100);
-    if (adequacy < 50) hasSevere = true;
+    const target   = PM_POSHAN_SCORE_TARGETS[nutrient] ?? (rdaTargets[nutrient] || 1);
+    const adequacy = Math.min((provided / target) * 100, 100);
     scoreSum  += weight * adequacy;
     weightSum += weight;
     breakdown[nutrient] = {
       provided: Math.round(provided * 100) / 100,
-      rda:      Math.round(rda * 100) / 100,
+      rda:      Math.round(target * 100) / 100,
       adequacy: Math.round(adequacy * 10) / 10,
     };
   }
 
-  let score = weightSum > 0 ? scoreSum / weightSum : 0;
-  if (hasSevere) score = Math.max(0, score - 10);
-  score = Math.round(score * 10) / 10;
+  const score = Math.round((weightSum > 0 ? scoreSum / weightSum : 0) * 10) / 10;
 
   let label;
   if (score >= 90)      label = 'Balanced';
@@ -443,7 +443,7 @@ export const computeMealSummary = async (meal_id) => {
         perStudent[n] = parseFloat(s[`per_student_${n}`] || 0);
         rdaForMeal[n] = parseFloat(s[`rda_${n}`] || 0);
       }
-      const scoringWeights = await loadScoringWeights();
+      const scoringWeights = loadScoringWeights();
       const scoring  = scoreMeal(perStudent, rdaForMeal, scoringWeights);
       const d = savedDist.rows[0];
       const pmSplit = {
@@ -504,7 +504,7 @@ export const computeMealSummary = async (meal_id) => {
     for (const n of NUTRIENTS)
       rdaForMeal[n] = Math.round(baseline[n] * LUNCH_FRACTION * 100) / 100;
 
-    const scoringWeights = await loadScoringWeights();
+    const scoringWeights = loadScoringWeights();
     const scoring  = scoreMeal(perStudent, rdaForMeal, scoringWeights);
     // No split data in old dist row — show no_students for both levels
     const pmPoshan = checkPmPoshan({ primary: null, upper_primary: null });
@@ -602,7 +602,7 @@ export const computeMealSummary = async (meal_id) => {
   for (const n of NUTRIENTS)
     rdaForMeal[n] = Math.round(rdaBaseline[n] * LUNCH_FRACTION * 100) / 100;
 
-  const scoringWeights = await loadScoringWeights();
+  const scoringWeights = loadScoringWeights();
   const scoring  = scoreMeal(perStudent, rdaForMeal, scoringWeights);
   const pmSplit = dist ? {
     primary:       dist.primaryCount > 0      ? dist.primaryPerStudent      : null,
