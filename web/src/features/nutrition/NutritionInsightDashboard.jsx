@@ -264,9 +264,7 @@ export default function NutritionInsightDashboard({ report, studentName, mealNam
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-base font-bold text-[var(--text-primary)]">{studentName || `Student ${norm.student_id}`}</h2>
             <Badge color={sm.badge}>{sm.dot} {sm.label}</Badge>
-            {norm.bmi_flag && (
-              <Badge color="amber">BMI: {norm.bmi_category || 'flagged'}</Badge>
-            )}
+
             {norm.malnutrition_label && (
               <Badge color={
                 norm.malnutrition_label === 'Critical' ? 'red'

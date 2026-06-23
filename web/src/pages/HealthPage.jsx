@@ -30,23 +30,6 @@ import {
   Trash2,
 } from 'lucide-react';
 
-function bmiColor(cat) {
-  if (!cat) return 'muted';
-
-  const c = cat.toLowerCase();
-
-  if (c.includes('underweight')) return 'amber';
-
-  if (c.includes('normal')) return 'green';
-
-  if (
-    c.includes('overweight') ||
-    c.includes('obese')
-  )
-    return 'red';
-
-  return 'muted';
-}
 
 export default function HealthPage() {
   const toast = useToast();
@@ -305,9 +288,6 @@ export default function HealthPage() {
                     })}
                   </span>
 
-                  <Badge color={bmiColor(r.bmi_category)}>
-                    {r.bmi_category || '—'}
-                  </Badge>
                   {r.malnutrition_label && (
                     <Badge color={
                       r.malnutrition_label === 'Critical' ? 'red'
@@ -326,7 +306,7 @@ export default function HealthPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   {[
                     {
                       label: 'Height',
@@ -336,15 +316,6 @@ export default function HealthPage() {
                     {
                       label: 'Weight',
                       value: `${r.weight_kg} kg`,
-                    },
-
-                    {
-                      label: 'BMI',
-
-                      value:
-                        r.bmi != null
-                          ? Number(r.bmi).toFixed(1)
-                          : '-',
                     },
 
                     {
@@ -440,10 +411,6 @@ export default function HealthPage() {
             value={form.muac_cm}
             onChange={set('muac_cm')}
           />
-
-          <p className="text-xs text-[var(--text-muted)]">
-            BMI will be calculated automatically.
-          </p>
 
           <div className="flex gap-3 mt-1">
             <Button

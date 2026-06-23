@@ -33,14 +33,6 @@ function malnutritionColor(label) {
   return 'muted';
 }
 
-function bmiColor(category) {
-  if (!category) return 'muted';
-  const value = category.toLowerCase();
-  if (value.includes('normal')) return 'green';
-  if (value.includes('underweight')) return 'amber';
-  if (value.includes('overweight') || value.includes('obese')) return 'red';
-  return 'muted';
-}
 
 
 export default function StudentsPage() {
@@ -51,7 +43,7 @@ export default function StudentsPage() {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterClass, setFilterClass] = useState('');
-  const [filterBmi, setFilterBmi]           = useState('');
+
   const [filterMalnutrition, setFilterMalnutrition] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editStudent, setEditStudent] = useState(null); // student object being edited
@@ -67,10 +59,9 @@ export default function StudentsPage() {
     } catch { toast('Failed to load classes', 'error'); }
   };
 
-  const loadStudents = async (class_id, bmi_category, malnutrition_label) => {
+  const loadStudents = async (class_id, malnutrition_label) => {
     try {
       const params = {};
-      if (bmi_category) params.bmi_category = bmi_category;
       if (malnutrition_label) params.malnutrition_label = malnutrition_label;
       const s = class_id
         ? await getStudentsByClass(class_id, params)
@@ -92,7 +83,7 @@ export default function StudentsPage() {
   useEffect(() => { loadClasses(); }, []);
 
   // Re-fetch students whenever filters change
-  useEffect(() => { loadStudents(filterClass, filterBmi, filterMalnutrition); }, [filterClass, filterBmi, filterMalnutrition]);
+  useEffect(() => { loadStudents(filterClass, filterMalnutrition); }, [filterClass, filterMalnutrition]);
 
   const set = (k) => (e) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -117,7 +108,7 @@ export default function StudentsPage() {
       toast('Student added!', 'success');
       setShowModal(false);
       setForm({ name: '', age: '', gender: 'male', class_id: '', date_of_birth: '', parent_email: '', parent_phone: '' });
-      loadStudents(filterClass, filterBmi, filterMalnutrition);
+      loadStudents(filterClass, filterMalnutrition);
     } catch (err) {
       toast(err.response?.data?.message || 'Failed', 'error');
     } finally {
@@ -162,7 +153,7 @@ export default function StudentsPage() {
       await updateStudent(editStudent.id, payload);
       toast('Student updated!', 'success');
       closeEdit();
-      loadStudents(filterClass, filterBmi, filterMalnutrition);
+      loadStudents(filterClass, filterMalnutrition);
     } catch (err) {
       toast(err.response?.data?.message || 'Failed to update', 'error');
     } finally {
@@ -208,7 +199,7 @@ export default function StudentsPage() {
     <div>
       <PageHeader
         title="Students"
-        description={`${total} student${total !== 1 ? 's' : ''}${filterClass ? ' in selected class' : ''}` + (filterBmi ? ` · ${filterBmi}` : '') + (filterMalnutrition ? ` · ${filterMalnutrition}` : '')}
+        description={`${total} student${total !== 1 ? 's' : ''}${filterClass ? ' in selected class' : ''}` + (filterMalnutrition ? ` · ${filterMalnutrition}` : '')}
         action={
           isTeacher && (
             <Button icon={Plus} onClick={() => setShowModal(true)}>Add Student</Button>
@@ -227,17 +218,7 @@ export default function StudentsPage() {
             <option key={c.id} value={c.id}>{c.name}{c.section ? ` - ${c.section}` : ''}</option>
           ))}
         </Select>
-        <Select
-          className="w-48"
-          value={filterBmi}
-          onChange={(e) => setFilterBmi(e.target.value)}
-        >
-          <option value="">All BMI categories</option>
-          <option value="Underweight">Underweight</option>
-          <option value="Normal">Normal</option>
-          <option value="Overweight">Overweight</option>
-          <option value="Obese">Obese</option>
-        </Select>
+
         <Select
           className="w-52"
           value={filterMalnutrition}
@@ -262,9 +243,6 @@ export default function StudentsPage() {
       ) : (
         <div className="grid gap-2">
           {students.map((s) => {
-            const bmi = s.bmi != null ? Number(s.bmi) : null;
-            const bmiCategory = s.bmi_category || null;
-
             return (
               <Card key={s.id} className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 min-w-0">
@@ -290,11 +268,7 @@ export default function StudentsPage() {
                         </span>
                       )}
                     </div>
-                    {s.bmi_recorded_at && (
-                      <div className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                        BMI recorded {new Date(s.bmi_recorded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </div>
-                    )}
+
                   </div>
                 </div>
 
@@ -308,23 +282,10 @@ export default function StudentsPage() {
                     ) : (
                       <div className="text-[10px] text-[var(--text-muted)]">WHO: —</div>
                     )}
-                    {s.bmi_recorded_at && (
-                      <div className="text-[10px] text-[var(--text-muted)] mt-1">Recorded</div>
-                    )}
+
                   </div>
 
-                  <div className="text-right min-w-14">
-                    <div className="text-xs text-[var(--text-muted)]">BMI</div>
-                    <div className="text-sm font-semibold text-[var(--text-primary)] mono">
-                      {bmi != null ? bmi.toFixed(1) : '-'}
-                    </div>
-                  </div>
 
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge color={bmiColor(bmiCategory)} className="min-w-20 justify-center text-[11px]">
-                      {bmiCategory || 'No record'}
-                    </Badge>
-                  </div>
                   <div className="flex items-center gap-2">
                     <Link to={`/students/${s.id}`}>
                       <Button variant="secondary" size="sm" icon={UserRound}>Profile</Button>

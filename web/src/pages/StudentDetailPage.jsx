@@ -47,17 +47,6 @@ const genderColor = {
   other: 'muted',
 };
 
-function bmiColor(cat) {
-  if (!cat) return 'muted';
-
-  const c = cat.toLowerCase();
-
-  if (c.includes('underweight')) return 'amber';
-  if (c.includes('normal')) return 'green';
-  if (c.includes('overweight') || c.includes('obese')) return 'red';
-
-  return 'muted';
-}
 
 function malnutritionColor(label) {
   if (!label) return 'muted';
@@ -92,7 +81,7 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
-function BMITrendChart({ records }) {
+function WeightTrendChart({ records }) {
   if (records.length < 2) {
     return (
       <div className="flex items-center justify-center h-28 text-xs text-[var(--text-muted)]">
@@ -108,8 +97,6 @@ function BMITrendChart({ records }) {
         day: 'numeric',
         month: 'short',
       }),
-
-      BMI: Number(r.bmi || 0),
       Weight: Number(r.weight_kg || 0),
     }));
 
@@ -117,43 +104,11 @@ function BMITrendChart({ records }) {
     <div className="h-36">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
-          <CartesianGrid
-            stroke="var(--border)"
-            strokeDasharray="3 3"
-          />
-
-          <XAxis
-            dataKey="date"
-            tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
-            axisLine={false}
-            tickLine={false}
-          />
-
-          <YAxis
-            tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
-            axisLine={false}
-            tickLine={false}
-            width={28}
-          />
-
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+          <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} width={28} />
           <Tooltip content={<ChartTooltip />} />
-
-          <Line
-            type="monotone"
-            dataKey="BMI"
-            stroke="var(--accent)"
-            strokeWidth={2}
-            dot={{ fill: 'var(--accent)', r: 3 }}
-          />
-
-          <Line
-            type="monotone"
-            dataKey="Weight"
-            stroke="var(--blue)"
-            strokeWidth={2}
-            dot={{ fill: 'var(--blue)', r: 3 }}
-            strokeDasharray="4 2"
-          />
+          <Line type="monotone" dataKey="Weight" stroke="var(--blue)" strokeWidth={2} dot={{ fill: 'var(--blue)', r: 3 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -428,11 +383,6 @@ export default function StudentDetailPage() {
 
   const prev = healthRecords[1];
 
-  const bmiTrend =
-    latest && prev
-      ? Number(latest.bmi) - Number(prev.bmi)
-      : undefined;
-
   const weightTrend =
     latest && prev
       ? Number(latest.weight_kg) -
@@ -468,10 +418,6 @@ export default function StudentDetailPage() {
               <>
                 <Badge color={malnutritionColor(latest.malnutrition_label)}>
                   {latest.malnutrition_label}
-                </Badge>
-
-                <Badge color={bmiColor(latest.bmi_category)} className="ml-1 text-[12px]">
-                  {latest.bmi_category}
                 </Badge>
               </>
             )}
@@ -580,17 +526,6 @@ export default function StudentDetailPage() {
             {latest && (
               <div className="grid grid-cols-2 gap-2.5 mb-4">
                 <StatTile
-                  label="BMI"
-                  value={
-                    latest.bmi != null
-                      ? latest.bmi.toFixed(1)
-                      : '-'
-                  }
-                  unit=""
-                  trend={bmiTrend}
-                />
-
-                <StatTile
                   label="Weight"
                   value={latest.weight_kg}
                   unit="kg"
@@ -603,6 +538,14 @@ export default function StudentDetailPage() {
                   unit="cm"
                 />
 
+                {latest.bmi != null && (
+                  <StatTile
+                    label="BMI"
+                    value={Number(latest.bmi).toFixed(1)}
+                    unit=""
+                  />
+                )}
+
                 <StatTile
                   label="MUAC"
                   value={latest.muac_cm ?? '-'}
@@ -613,10 +556,10 @@ export default function StudentDetailPage() {
 
             <Card className="mb-4">
               <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">
-                BMI & Weight Trend
+                Weight Trend
               </div>
 
-              <BMITrendChart records={healthRecords} />
+              <WeightTrendChart records={healthRecords} />
             </Card>
 
             <div className="flex flex-col gap-2">
@@ -630,9 +573,6 @@ export default function StudentDetailPage() {
                     </span>
 
                     <div className="flex items-center gap-2">
-                      <Badge color={bmiColor(r.bmi_category)}>
-                        {r.bmi_category}
-                      </Badge>
                       {r.malnutrition_label && (
                         <Badge color={malnutritionColor(r.malnutrition_label)} className="text-[11px]">
                           {r.malnutrition_label}
@@ -660,16 +600,12 @@ export default function StudentDetailPage() {
                       </span>
                     </div>
 
-                    <div>
-                      <span className="text-[var(--text-muted)]">
-                        BMI
-                      </span>{' '}
-                      <span className="mono">
-                        {r.bmi != null
-                          ? r.bmi.toFixed(1)
-                          : '-'}
-                      </span>
-                    </div>
+                    {r.bmi != null && (
+                      <div>
+                        <span className="text-[var(--text-muted)]">BMI</span>{' '}
+                        <span className="mono">{Number(r.bmi).toFixed(1)}</span>
+                      </div>
+                    )}
 
                     <div>
                       <span className="text-[var(--text-muted)]">

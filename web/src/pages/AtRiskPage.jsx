@@ -65,16 +65,7 @@ function StudentCard({ student, categoryLabel, categoryColor, badgeColor, onNoti
             {student.class_name && (
               <span className="text-xs text-[var(--text-muted)]">{student.class_name}</span>
             )}
-            {student.bmi_category && (
-              <Badge color={
-                student.bmi_category === 'Normal'      ? 'green'
-                : student.bmi_category === 'Underweight' ? 'red'
-                : student.bmi_category === 'Overweight'  ? 'amber'
-                : 'red'
-              }>
-                BMI: {student.bmi_category}
-              </Badge>
-            )}
+
             {student.gender && (
               <Badge color={student.gender === 'male' ? 'blue' : 'purple'}>
                 {student.gender}

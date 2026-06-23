@@ -168,7 +168,7 @@ function StudentRow({ r }) {
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <Badge color={sm.badge}>{sm.dot} {norm?.overall_status || 'processed'}</Badge>
-          {norm?.bmi_flag && norm.bmi_flag !== 'normal' && <Badge color="amber">{norm.bmi_flag}</Badge>}
+
           {open ? <ChevronUp size={14} className="text-[var(--text-muted)]" /> : <ChevronDown size={14} className="text-[var(--text-muted)]" />}
         </div>
       </button>
