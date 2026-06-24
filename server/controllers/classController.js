@@ -44,9 +44,15 @@ export const getClasses = async (req, res) => {
     const result = await pool.query(
       `SELECT
          c.*,
+         COALESCE(sc.student_count, 0) AS student_count,
          assigned_teacher.teacher_id AS assigned_teacher_id,
          assigned_teacher.teacher_name AS assigned_teacher_name
        FROM classes c
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*) AS student_count
+         FROM students s
+         WHERE s.class_id = c.id
+       ) sc ON true
        LEFT JOIN LATERAL (
          SELECT tc.teacher_id, u.name AS teacher_name
          FROM teacher_classes tc
