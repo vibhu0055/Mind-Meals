@@ -244,77 +244,74 @@ export default function StudentsPage() {
         <div className="grid gap-2">
           {students.map((s) => {
             return (
-              <Card key={s.id} className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="w-12 h-12 rounded-full bg-[var(--purple-dim)] flex items-center justify-center flex-shrink-0 text-sm font-bold text-[var(--purple)]">
-                    {getInitials(s.name)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-[var(--text-primary)]">{s.name}</span>
-                      <Badge color={genderColor[s.gender] || 'muted'}>{s.gender}</Badge>
-                    </div>
-                    <div className="text-xs text-[var(--text-muted)] mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      <span>Age {s.age}</span>
-                      <span>·</span>
-                      <span>{s.class_name || '—'}</span>
-                      {s.class_level && (
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                          s.class_level === 'primary'
-                            ? 'bg-[var(--blue-dim)] text-[var(--blue)]'
-                            : 'bg-[var(--purple-dim)] text-[var(--purple)]'
-                        }`}>
-                          {s.class_level === 'primary' ? 'Primary' : 'Upper Primary'}
-                        </span>
-                      )}
-                    </div>
+              <Card key={s.id} className="flex items-center gap-4">
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-full bg-[var(--purple-dim)] flex items-center justify-center flex-shrink-0 text-sm font-bold text-[var(--purple)]">
+                  {getInitials(s.name)}
+                </div>
 
+                {/* Name + meta — grows */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">{s.name}</span>
+                    <Badge color={genderColor[s.gender] || 'muted'}>{s.gender}</Badge>
+                  </div>
+                  <div className="text-xs text-[var(--text-muted)] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>Age {s.age}</span>
+                    <span>·</span>
+                    <span >Class {s.class_name || '—'}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 flex-shrink-0">
-                  {/* WHO (malnutrition) shown prominently, BMI is optional and less emphasized */}
-                  <div className="flex flex-col items-center mr-4">
-                    {s.malnutrition_label ? (
-                      <Badge color={malnutritionColor(s.malnutrition_label)} className="px-3 py-1.5 text-sm font-semibold">
-                        {s.malnutrition_label}
-                      </Badge>
+                {/* WHO status — fixed width */}
+                <div className="w-28 flex-shrink-0 flex justify-center">
+                  {s.malnutrition_label ? (
+                    <Badge color={malnutritionColor(s.malnutrition_label)} className="px-2.5 py-1 text-xs font-semibold">
+                      {s.malnutrition_label}
+                    </Badge>
+                  ) : (
+                    <span className="text-[11px] text-[var(--text-muted)]">No record</span>
+                  )}
+                </div>
+
+                {/* BMI — fixed width */}
+                <div className="w-12 flex-shrink-0 text-right">
+                  {s.bmi != null ? (
+                    <>
+                      <div className="text-[10px] text-[var(--text-muted)]">BMI</div>
+                      <div className="text-sm font-semibold text-[var(--text-primary)] mono">{Number(s.bmi).toFixed(1)}</div>
+                    </>
+                  ) : (
+                    <span className="text-[11px] text-[var(--text-muted)]">—</span>
+                  )}
+                </div>
+
+                {/* Actions — fixed width, placeholder keeps Profile aligned when Notify absent */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {(s.malnutrition_label === 'Critical' || s.malnutrition_label === 'High Risk') &&
+                    (s.parent_email || s.parent_phone) ? (
+                      <Button variant="danger" size="sm" icon={BellRing} loading={notifying === s.id} onClick={() => handleNotify(s.id)}>
+                        Notify
+                      </Button>
                     ) : (
-                      <div className="text-[10px] text-[var(--text-muted)]">WHO: —</div>
-                    )}
-
-                  </div>
-
-
-                  <div className="flex items-center gap-2">
-                    <Link to={`/students/${s.id}`}>
-                      <Button variant="secondary" size="sm" icon={UserRound}>Profile</Button>
-                    </Link>
-                    {(s.malnutrition_label === 'Critical' || s.malnutrition_label === 'High Risk') &&
-                      (s.parent_email || s.parent_phone) && (
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          icon={BellRing}
-                          loading={notifying === s.id}
-                          onClick={() => handleNotify(s.id)}
-                        >
-                          Notify
-                        </Button>
-                    )}
-                    {isTeacher && (
-                      <>
-                        <Link to={`/health?student_id=${s.id}`}>
-                          <Button variant="secondary" size="sm" icon={HeartPulse}>Health</Button>
-                        </Link>
-                        <Button variant="secondary" size="sm" icon={Pencil} onClick={() => openEdit(s)} />
-                        <Button variant="danger" size="sm" icon={Trash2} onClick={() => handleDelete(s.id)} />
-                      </>
-                    )}
-                    <Link to={`/students/${s.id}`}>
-                      <Button variant="ghost" size="sm" icon={ChevronRight} />
-                    </Link>
-                  </div>
+                      <div className="w-[70px]" />
+                    )
+                  }
+                  <Link to={`/students/${s.id}`}>
+                    <Button variant="secondary" size="sm" icon={UserRound}>Profile</Button>
+                  </Link>
+                  {isTeacher && (
+                    <>
+                      <Link to={`/health?student_id=${s.id}`}>
+                        <Button variant="secondary" size="sm" icon={HeartPulse}>Health</Button>
+                      </Link>
+                      <Button variant="secondary" size="sm" icon={Pencil} onClick={() => openEdit(s)} />
+                      <Button variant="danger" size="sm" icon={Trash2} onClick={() => handleDelete(s.id)} />
+                    </>
+                  )}
+                  <Link to={`/students/${s.id}`}>
+                    <Button variant="ghost" size="sm" icon={ChevronRight} />
+                  </Link>
                 </div>
               </Card>
             );

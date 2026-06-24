@@ -722,8 +722,10 @@ export default function MealDetailPage() {
         </div>
       </div>
 
-      {summary ? (
-        <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6">
+
+        {/* Summary stats row — only when summary exists */}
+        {summary && (
           <div className="grid grid-cols-[320px_1fr] gap-6">
             <Card className="flex items-center justify-center p-6">
               <div className="text-center">
@@ -766,7 +768,10 @@ export default function MealDetailPage() {
               )}
             </Card>
           </div>
+        )}
 
+        {/* Nutrition insight cards — only when summary exists */}
+        {summary && (
           <section>
             <div className="flex items-center gap-2 mb-3">
               <Sparkles size={15} className="text-[var(--accent)]" />
@@ -774,69 +779,77 @@ export default function MealDetailPage() {
             </div>
             <NutrientInsightCards nutrients={insightNutrients} />
           </section>
+        )}
 
-
-          <div className="grid grid-cols-2 gap-6">
-            {/* Left column: PM Poshan + Distribution stacked */}
-            <div className="flex flex-col gap-6">
-              <section>
+        {/* Main 2-col: left = PM Poshan + Distribution (summary only), right = Ingredients (always) */}
+        <div className="grid grid-cols-2 gap-6">
+          <div className="flex flex-col gap-6">
+            {summary ? (
+              <>
                 <PmPoshanSection pmPoshan={summary.pm_poshan} />
-              </section>
-              <Card>
-                <DistributionSection summary={summary} />
-              </Card>
-            </div>
-
-            {/* Right column: Ingredients spanning full height */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                  Ingredients ({(editIngredients ?? ingredients).length})
-                </h2>
-                {!locked && (
-                  editIngredients ? (
-                    <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => setEditIngredients(null)}>Cancel</Button>
-                      <Button size="sm" loading={savingIngredients} onClick={handleSaveIngredients}>Save</Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      {ingredients.length > 0 && (
-                        <Button variant="danger" size="sm" icon={Trash2} loading={savingIngredients} onClick={handleClearAllIngredients}>Clear all</Button>
-                      )}
-                      <Button variant="secondary" size="sm" icon={Plus} onClick={startEditing}>Edit Ingredients</Button>
-                    </div>
-                  )
-                )}
+                <Card>
+                  <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3 mt-3">
+                    Automatic Distribution by Group
+                  </h2>
+                  <DistributionSection summary={summary} />
+                </Card>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full text-sm text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded-[var(--radius-lg)] p-8 text-center">
+                Add ingredients to see PM POSHAN status and distribution analysis
               </div>
-              <div className="flex flex-col gap-1.5">
-                {editIngredients && <AddIngredientRow onAdd={handleAdd} />}
-                {(editIngredients ?? ingredients).map((ingredient) => (
-                  <IngredientCard
-                    key={ingredient.ingredient_id ?? ingredient.id}
-                    ingredient={ingredient}
-                    locked={locked || !editIngredients}
-                    onRemove={handleRemove}
-                    onQtyChange={handleQtyChange}
-                  />
-                ))}
-                {!locked && !editIngredients && ingredients.length === 0 && (
-                  <Button variant="secondary" icon={Plus} onClick={startEditing}>Add Ingredients</Button>
-                )}
-              </div>
-            </section>
+            )}
           </div>
 
-          <SuggestionsSection suggestions={summary.suggestions} />
-          <ExplanationSection explanation={summary.explanation} />
+          {/* Ingredients — always visible */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Ingredients ({(editIngredients ?? ingredients).length})
+              </h2>
+              {!locked && (
+                editIngredients ? (
+                  <div className="flex gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => setEditIngredients(null)}>Cancel</Button>
+                    <Button size="sm" loading={savingIngredients} onClick={handleSaveIngredients}>Save</Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    {ingredients.length > 0 && (
+                      <Button variant="danger" size="sm" icon={Trash2} loading={savingIngredients} onClick={handleClearAllIngredients}>Clear all</Button>
+                    )}
+                    <Button variant="secondary" size="sm" icon={Plus} onClick={startEditing}>Edit Ingredients</Button>
+                  </div>
+                )
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {editIngredients && <AddIngredientRow onAdd={handleAdd} />}
+              {(editIngredients ?? ingredients).map((ingredient) => (
+                <IngredientCard
+                  key={ingredient.ingredient_id ?? ingredient.id}
+                  ingredient={ingredient}
+                  locked={locked || !editIngredients}
+                  onRemove={handleRemove}
+                  onQtyChange={handleQtyChange}
+                />
+              ))}
+              {!locked && !editIngredients && ingredients.length === 0 && (
+                <Button variant="secondary" icon={Plus} onClick={startEditing}>Add Ingredients</Button>
+              )}
+            </div>
+          </section>
         </div>
-      ) : (
-        <EmptyState
-          icon={BarChart3}
-          title="No nutrition data yet"
-          description="Add ingredients to this meal to see the score, PM POSHAN status, suggestions, and full analysis."
-        />
-      )}
+
+        {/* Suggestions + Explanation — only when summary exists */}
+        {summary && (
+          <>
+            <SuggestionsSection suggestions={summary.suggestions} />
+            <ExplanationSection explanation={summary.explanation} />
+          </>
+        )}
+
+      </div>
     </div>
   );
 }

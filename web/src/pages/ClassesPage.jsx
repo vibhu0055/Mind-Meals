@@ -9,7 +9,7 @@ import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import { PageLoader, EmptyState } from '../components/ui/Spinner';
 import PageHeader from '../components/layout/PageHeader';
-import { BookOpen, Pencil, Plus, Trash2, UserPlus, ArrowRightLeft } from 'lucide-react';
+import { Pencil, Plus, Trash2, UserPlus, ArrowRightLeft, Users, UserRound } from 'lucide-react';
 
 
 function getAssignedTeacherId(classItem) {
@@ -35,29 +35,42 @@ function getAssignedTeacherName(classItem, teachers) {
   );
 }
 
+function getInitials(name) {
+  if (!name) return '';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 export default function ClassesPage() {
   const toast = useToast();
-  const [classes, setClasses]       = useState([]);
-  const [teachers, setTeachers]     = useState([]);
-  const [loading, setLoading]       = useState(true);
+  const [classes, setClasses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [assignTarget, setAssignTarget] = useState(null);
-  const [form, setForm]             = useState({ name: '', section: '', level: '' });
+  const [form, setForm] = useState({ name: '', section: '', level: '' });
   const [assignForm, setAssignForm] = useState({ teacher_id: '' });
-  const [showEdit, setShowEdit]     = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
-  const [editForm, setEditForm]     = useState({ name: '', section: '', level: '' });
+  const [editForm, setEditForm] = useState({ name: '', section: '', level: '' });
   const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors]         = useState({});
+  const [errors, setErrors] = useState({});
 
   const load = async () => {
     try {
       const [c, t] = await Promise.all([getClasses(), getTeachers()]);
       setTeachers(t.data.teachers || []);
       setClasses(c.data.classes || []);
-    } catch { toast('Failed to load data', 'error'); }
-    finally { setLoading(false); }
+    } catch {
+      toast('Failed to load data', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -143,95 +156,160 @@ export default function ClassesPage() {
 
       {classes.length === 0 ? (
         <EmptyState
-          icon={BookOpen}
+          icon={Plus}
           title="No classes yet"
           description="Create your first class"
           action={<Button icon={Plus} onClick={() => setShowCreate(true)}>Create Class</Button>}
         />
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-            {classes.map((c) => {
-              const teacherName = getAssignedTeacherName(c, teachers);
-              const isAssigned  = !!getAssignedTeacherId(c);
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {classes.map((c) => {
+            const teacherName = getAssignedTeacherName(c, teachers);
+            const isAssigned = !!getAssignedTeacherId(c);
 
-              return (
-                <Card key={c.id}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--amber-dim)] flex items-center justify-center">
-                      <BookOpen size={18} className="text-[var(--amber)]" />
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={isAssigned ? ArrowRightLeft : UserPlus}
-                        onClick={() => {
-                          const teacherId = getAssignedTeacherId(c);
-                          setAssignTarget(c);
-                          setAssignForm({ teacher_id: teacherId ? String(teacherId) : '' });
-                          setShowAssign(true);
-                        }}
-                      >
-                        {isAssigned ? 'Reassign' : 'Assign'}
-                      </Button>
-                      <Button variant="secondary" size="sm" icon={Pencil} onClick={() => openEdit(c)} />
-                      <Button variant="danger" size="sm" icon={Trash2} onClick={() => handleDelete(c.id)} />
-                    </div>
-                  </div>
+            return (
+              <Card
+                key={c.id}
+                className="overflow-hidden p-0 border border-[var(--border)] rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-blue-300 group"
+              >
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="text-sm font-semibold text-[var(--text-primary)]">{c.name}</div>
-                    {c.level && (
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                        c.level === 'primary'
-                          ? 'bg-[var(--blue-dim)] text-[var(--blue)] border-[rgba(59,130,246,0.3)]'
-                          : 'bg-[var(--purple-dim)] text-[var(--purple)] border-[rgba(168,85,247,0.3)]'
-                      }`}>
-                        {c.level === 'primary' ? 'Primary' : 'Upper Primary'}
+                {/* Header */}
+                <div className="px-4 py-4 border-b border-[var(--border)] flex items-center justify-between gap-3">
+
+                  {/* Left Side */}
+                  <div className="flex items-center gap-3 min-w-0">
+
+                    {/* Class Badge */}
+                    <div className="w-11 h-11 rounded-xl bg-purple-100 border border-[rgba(59,130,246,0.15)] flex items-center justify-center flex-shrink-0">
+                      <span className="text-purple-700 font-bold text-lg">
+                        {(c.name.match(/\d+/)?.[0] || c.name.charAt(0).toUpperCase()) + (c.section || '')}
                       </span>
-                    )}
-                  </div>
-                  {c.section && <div className="text-xs text-[var(--text-muted)] mt-0.5">Section {c.section}</div>}
+                    </div>
 
-                  <div className="text-xs text-[var(--text-muted)] mt-2">
-                    Teacher:{' '}
-                    {teacherName
-                      ? <span className="text-[var(--text-secondary)] font-medium">{teacherName}</span>
-                      : <span className="italic">Not assigned</span>
-                    }
                   </div>
 
-                </Card>
-              );
-            })}
-          </div>
+                  {/* Level Badge */}
+                  {c.level && (
+                    <span
+                      className={`flex-shrink-0 text-[11px] font-medium px-2.5 py-0.5 rounded-full border ${c.level === 'primary'
+                        ? 'bg-[var(--blue-dim)] text-[var(--blue)] border-[rgba(59,130,246,0.25)]'
+                        : 'bg-[var(--purple-dim)] text-[var(--purple)] border-[rgba(168,85,247,0.25)]'
+                        }`}
+                    >
+                      {c.level === 'primary' ? 'Primary' : 'Upper Primary'}
+                    </span>
+                  )}
+
+                </div>
+
+                {/* Body */}
+                <div className="px-4 py-3 flex flex-col gap-2.5 border-b border-[var(--border)]">
+                  {/* Student count */}
+                  <div className="flex items-center font-semibold gap-2 text-[13px] text-[var(--text-primary)]">
+                    <Users size={13} className="text-[var(--text-muted)] flex-shrink-0" />
+                    <span>{c.student_count ?? 0} students</span>
+                  </div>
+
+                  {/* Teacher */}
+                  <div className="flex items-center gap-2">
+                    <UserRound size={14} className="text-[var(--text-muted)] flex-shrink-0" />
+
+                    <span
+                      className={`text-xs font-semibold truncate ${teacherName
+                          ? "text-[var(--text-primary)]"
+                          : "text-[var(--text-muted)] italic"
+                        }`}
+                    >
+                      {teacherName || "Not Assigned"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="px-4 py-2.5 flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={isAssigned ? ArrowRightLeft : UserPlus}
+                    onClick={() => {
+                      const teacherId = getAssignedTeacherId(c);
+                      setAssignTarget(c);
+                      setAssignForm({ teacher_id: teacherId ? String(teacherId) : '' });
+                      setShowAssign(true);
+                    }}
+                  >
+                    {isAssigned ? 'Reassign' : 'Assign'}
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={Pencil}
+                    onClick={() => openEdit(c)}
+                  >
+                    Edit
+                  </Button>
+
+                  {/* Destructive action pushed to the right, icon-only */}
+                  <button
+                    onClick={() => handleDelete(c.id)}
+                    className="ml-auto flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] text-[var(--text-muted)] bg-red-100 text-red-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950 dark:hover:text-red-400 transition-colors"
+                    aria-label="Delete class"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+
+              </Card>
+            );
+          })}
+        </div>
       )}
 
-      {/* Create modal */}
+      {/* ── Create modal ── */}
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Class">
         <form onSubmit={handleCreate} className="flex flex-col gap-4">
-          <Input label="Class Name" placeholder="e.g. Class 5, Grade 3" value={form.name} onChange={set('name')} error={errors.name} />
-          <Input label="Section (optional)" placeholder="e.g. A, B, C" value={form.section} onChange={set('section')} />
+          <Input
+            label="Class Name"
+            placeholder="e.g. Class 5, Grade 3"
+            value={form.name}
+            onChange={set('name')}
+            error={errors.name}
+          />
+          <Input
+            label="Section (optional)"
+            placeholder="e.g. A, B, C"
+            value={form.section}
+            onChange={set('section')}
+          />
           <Select label="Level (optional)" value={form.level} onChange={set('level')}>
             <option value="">Not set</option>
             <option value="primary">Primary</option>
             <option value="upper_primary">Upper Primary</option>
           </Select>
-          <div className="text-[11px] text-[var(--text-muted)] -mt-2">
+          <p className="text-[11px] text-[var(--text-muted)] -mt-2">
             Level is used to calculate PM POSHAN benchmarks for this class.
-          </div>
+          </p>
           <div className="flex gap-3 mt-1">
-            <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)} type="button">Cancel</Button>
-            <Button className="flex-1" loading={submitting} type="submit">Create</Button>
+            <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)} type="button">
+              Cancel
+            </Button>
+            <Button className="flex-1" loading={submitting} type="submit">
+              Create
+            </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Assign / Reassign teacher modal */}
+      {/* ── Assign / Reassign teacher modal ── */}
       <Modal
         isOpen={showAssign}
         onClose={() => { setShowAssign(false); setAssignForm({ teacher_id: '' }); }}
-        title={getAssignedTeacherId(assignTarget || {}) ? `Reassign Teacher — ${assignTarget?.name}` : `Assign Teacher — ${assignTarget?.name}`}
+        title={
+          getAssignedTeacherId(assignTarget || {})
+            ? `Reassign Teacher — ${assignTarget?.name}`
+            : `Assign Teacher — ${assignTarget?.name}`
+        }
       >
         <form onSubmit={handleAssign} className="flex flex-col gap-4">
           {assignTarget && getAssignedTeacherId(assignTarget) && (
@@ -270,7 +348,14 @@ export default function ClassesPage() {
           )}
 
           <div className="flex gap-3 mt-1">
-            <Button variant="secondary" className="flex-1" onClick={() => { setShowAssign(false); setAssignForm({ teacher_id: '' }); }} type="button">Cancel</Button>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => { setShowAssign(false); setAssignForm({ teacher_id: '' }); }}
+              type="button"
+            >
+              Cancel
+            </Button>
             <Button
               className="flex-1"
               loading={submitting}
@@ -283,26 +368,48 @@ export default function ClassesPage() {
         </form>
       </Modal>
 
-      {/* Edit class modal */}
-      <Modal isOpen={showEdit} onClose={() => setShowEdit(false)} title={`Edit Class — ${editTarget?.name}`}>
+      {/* ── Edit class modal ── */}
+      <Modal
+        isOpen={showEdit}
+        onClose={() => setShowEdit(false)}
+        title={`Edit Class — ${editTarget?.name}`}
+      >
         <form onSubmit={handleEdit} className="flex flex-col gap-4">
-          <Input label="Class Name" placeholder="e.g. Class 5, Grade 3" value={editForm.name}
-            onChange={(e) => { setEditForm((f) => ({ ...f, name: e.target.value })); setErrors((er) => ({ ...er, editName: '' })); }}
-            error={errors.editName} />
-          <Input label="Section (optional)" placeholder="e.g. A, B, C" value={editForm.section}
-            onChange={(e) => setEditForm((f) => ({ ...f, section: e.target.value }))} />
-          <Select label="Level" value={editForm.level}
-            onChange={(e) => setEditForm((f) => ({ ...f, level: e.target.value }))}>
+          <Input
+            label="Class Name"
+            placeholder="e.g. Class 5, Grade 3"
+            value={editForm.name}
+            onChange={(e) => {
+              setEditForm((f) => ({ ...f, name: e.target.value }));
+              setErrors((er) => ({ ...er, editName: '' }));
+            }}
+            error={errors.editName}
+          />
+          <Input
+            label="Section (optional)"
+            placeholder="e.g. A, B, C"
+            value={editForm.section}
+            onChange={(e) => setEditForm((f) => ({ ...f, section: e.target.value }))}
+          />
+          <Select
+            label="Level"
+            value={editForm.level}
+            onChange={(e) => setEditForm((f) => ({ ...f, level: e.target.value }))}
+          >
             <option value="">Not set</option>
             <option value="primary">Primary</option>
             <option value="upper_primary">Upper Primary</option>
           </Select>
-          <div className="text-[11px] text-[var(--text-muted)] -mt-2">
+          <p className="text-[11px] text-[var(--text-muted)] -mt-2">
             Setting a level enables PM POSHAN benchmarks for students in this class.
-          </div>
+          </p>
           <div className="flex gap-3 mt-1">
-            <Button variant="secondary" className="flex-1" onClick={() => setShowEdit(false)} type="button">Cancel</Button>
-            <Button className="flex-1" loading={submitting} type="submit">Save Changes</Button>
+            <Button variant="secondary" className="flex-1" onClick={() => setShowEdit(false)} type="button">
+              Cancel
+            </Button>
+            <Button className="flex-1" loading={submitting} type="submit">
+              Save Changes
+            </Button>
           </div>
         </form>
       </Modal>
