@@ -132,9 +132,9 @@ export default function ClassesPage() {
     setSubmitting(true);
     try {
       await updateClass(editTarget.id, {
-        name: editForm.name,
-        section: editForm.section || undefined,
-        level: editForm.level || undefined,
+        name: editForm.name.trim(),
+        section: editForm.section.trim() || null,
+        level: editForm.level || null,
       });
       toast('Class updated!', 'success');
       setShowEdit(false);

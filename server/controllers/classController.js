@@ -84,8 +84,15 @@ export const updateClass = async (req, res) => {
     const { school_id } = req.user;
     const { id } = req.params;
     const { name, section, level } = req.body;
+    const hasName = Object.prototype.hasOwnProperty.call(req.body, "name");
+    const hasSection = Object.prototype.hasOwnProperty.call(req.body, "section");
+    const hasLevel = Object.prototype.hasOwnProperty.call(req.body, "level");
 
-    if (level && !['primary', 'upper_primary'].includes(level)) {
+    if (hasName && !String(name).trim()) {
+      return res.status(400).json({ message: "Class name is required" });
+    }
+
+    if (hasLevel && level && !['primary', 'upper_primary'].includes(level)) {
       return res.status(400).json({ message: "level must be 'primary' or 'upper_primary'" });
     }
 
@@ -102,12 +109,21 @@ export const updateClass = async (req, res) => {
     // 2. Update (partial)
     const result = await pool.query(
       `UPDATE classes
-       SET name    = COALESCE($1, name),
-           section = COALESCE($2, section),
-           level   = COALESCE($3, level)
-       WHERE id = $4 AND school_id = $5
+       SET name    = CASE WHEN $1 THEN $2 ELSE name END,
+           section = CASE WHEN $3 THEN $4 ELSE section END,
+           level   = CASE WHEN $5 THEN $6 ELSE level END
+       WHERE id = $7 AND school_id = $8
        RETURNING *`,
-      [name, section, level, id, school_id]
+      [
+        hasName,
+        hasName ? String(name).trim() : null,
+        hasSection,
+        hasSection && section != null && String(section).trim() ? String(section).trim() : null,
+        hasLevel,
+        hasLevel && level ? level : null,
+        id,
+        school_id
+      ]
     );
 
     return res.status(200).json({
