@@ -13,12 +13,11 @@ import { PageLoader } from '../components/ui/Spinner';
 import AssignedClassCards from '../components/dashboard/AssignedClassCards';
 import {
   UserSquare2, BookOpen, Users, UtensilsCrossed,
-  ArrowRight, TrendingUp, HeartPulse, ShieldAlert, AlertTriangle,
-  CheckCircle, Flame, Leaf, Star, Clock, BellRing, CalendarDays,
-  ChevronRight, Activity,
+  ArrowRight, ShieldAlert, AlertTriangle,
+  BellRing, CalendarDays, ChevronRight, Activity,
 } from 'lucide-react';
 
-/* ─── helpers ──────────────────────────────────────────────────────────────── */
+/* ─── helpers ─────────────────────────────────────────────────────────────── */
 function getTeacherId(user, profile) {
   return profile?.id || user?.id || user?.user_id || null;
 }
@@ -50,50 +49,56 @@ function scoreColor(score) {
   if (score >= 65) return 'var(--amber)';
   return 'var(--red)';
 }
-
 function scoreLabel(score) {
   if (score >= 85) return 'Balanced';
   if (score >= 65) return 'Good';
   if (score >= 45) return 'Average';
   return 'Poor';
 }
-
 function scoreColorName(score) {
   if (score >= 85) return 'green';
   if (score >= 65) return 'amber';
   return 'red';
 }
 
-/* ─── sub-components ───────────────────────────────────────────────────────── */
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/* ─── StatCard ────────────────────────────────────────────────────────────── */
 function StatCard({ label, value, icon: Icon, color = 'green', to, sublabel }) {
-  const colors = {
-    green: 'text-[var(--accent)] bg-[var(--accent-dim)]',
-    amber: 'text-[var(--amber)] bg-[var(--amber-dim)]',
-    blue: 'text-[var(--blue)] bg-[var(--blue-dim)]',
-    purple: 'text-[var(--purple)] bg-[var(--purple-dim)]',
-    red: 'text-[var(--red)] bg-[var(--red-dim)]',
+  const palette = {
+    green:  { icon: 'text-[var(--accent)]  bg-[var(--accent-dim)]' },
+    amber:  { icon: 'text-[var(--amber)]   bg-[var(--amber-dim)]' },
+    blue:   { icon: 'text-[var(--blue)]    bg-[var(--blue-dim)]' },
+    purple: { icon: 'text-[var(--purple)]  bg-[var(--purple-dim)]' },
+    red:    { icon: 'text-[var(--red)]     bg-[var(--red-dim)]' },
   };
+  const p = palette[color] || palette.green;
+
   const inner = (
-    <Card className="flex items-center gap-4 h-full">
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${colors[color]}`}>
-        <Icon size={20} />
+    <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 h-full flex items-center gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl">
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${p.icon}`}>
+        <Icon size={22} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-2xl font-bold text-[var(--text-primary)]">{value}</div>
-        <div className="text-xs text-[var(--text-muted)] mt-0.5 truncate">{label}</div>
-        {sublabel && <div className="text-[10px] text-[var(--text-muted)] opacity-70 truncate">{sublabel}</div>}
+        <div className="text-3xl font-bold text-[var(--text-primary)] leading-none">{value}</div>
+        <div className="text-xs text-[var(--text-muted)] mt-1.5 truncate">{label}</div>
+        {sublabel && <div className="text-[10px] text-[var(--text-muted)] opacity-60 truncate mt-0.5">{sublabel}</div>}
       </div>
-      {to && <ArrowRight size={15} className="text-[var(--text-muted)] flex-shrink-0" />}
-    </Card>
+      {to && <ChevronRight size={15} className="text-[var(--text-muted)] flex-shrink-0" />}
+    </div>
   );
   return to ? <Link to={to} className="block h-full">{inner}</Link> : inner;
 }
 
-
-
-/* ── Today's Meal Card ──────────────────────────────────────────────────────── */
+/* ─── TodaysMealCard ──────────────────────────────────────────────────────── */
 function TodaysMealCard({ meal, score }) {
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
+  const sc = typeof score === 'number' ? score : null;
 
   if (!meal) {
     return (
@@ -103,13 +108,13 @@ function TodaysMealCard({ meal, score }) {
           <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Today's Meal</span>
           <span className="text-xs text-[var(--text-muted)] ml-auto">{today}</span>
         </div>
-        <div className="flex items-center gap-3 py-3 px-3 rounded-xl bg-[var(--bg-hover)] border border-dashed border-[var(--border)]">
+        <div className="flex items-center gap-3 py-3 px-4 rounded-xl bg-[var(--bg-hover)] border border-dashed border-[var(--border)]">
           <UtensilsCrossed size={18} className="text-[var(--text-muted)]" />
           <div>
             <div className="text-sm font-medium text-[var(--text-secondary)]">No meal logged yet</div>
             <div className="text-xs text-[var(--text-muted)]">Log today's meal to track nutrition</div>
           </div>
-          <Link to="/meals" className="ml-auto text-xs font-semibold text-[var(--accent)] hover:opacity-80">
+          <Link to="/meals" className="ml-auto text-xs font-semibold text-[var(--accent)] hover:opacity-80 flex-shrink-0">
             Log now →
           </Link>
         </div>
@@ -117,118 +122,94 @@ function TodaysMealCard({ meal, score }) {
     );
   }
 
-  const sc = typeof score === 'number' ? score : null;
-
   return (
     <Card className="mb-5">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-4">
         <CalendarDays size={15} className="text-[var(--text-muted)]" />
         <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Today's Meal</span>
         <span className="text-xs text-[var(--text-muted)] ml-auto">{today}</span>
       </div>
-
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
+        {sc !== null && (
+          <div className="flex flex-col items-center flex-shrink-0">
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="26" fill="none" stroke="var(--border)" strokeWidth="5" />
+              <circle cx="32" cy="32" r="26" fill="none"
+                stroke={scoreColor(sc)} strokeWidth="5" strokeLinecap="round"
+                strokeDasharray={`${(sc / 100) * 163.4} 163.4`}
+                transform="rotate(-90 32 32)"
+                style={{ transition: 'stroke-dasharray 0.6s ease' }}
+              />
+              <text x="32" y="37" textAnchor="middle" fontSize="14" fontWeight="700" fill={scoreColor(sc)}>{sc}</text>
+            </svg>
+            <Badge color={scoreColorName(sc)} className="text-[10px] mt-1">{scoreLabel(sc)}</Badge>
+          </div>
+        )}
         <div className="flex-1 min-w-0">
-          <div className="text-base font-bold text-[var(--text-primary)] truncate">{meal.name}</div>
-          <div className="text-xs text-[var(--text-muted)] mt-0.5">
+          <div className="text-lg font-bold text-[var(--text-primary)] truncate">{meal.name}</div>
+          <div className="text-xs text-[var(--text-muted)] mt-1">
             {meal.ingredients?.length > 0
               ? `${meal.ingredients.length} ingredient${meal.ingredients.length !== 1 ? 's' : ''}`
               : 'No ingredients yet'}
           </div>
+          <Link
+            to={`/meals/${meal.id}`}
+            className="inline-flex items-center gap-1 mt-3 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:opacity-80 transition-opacity"
+          >
+            View details <ArrowRight size={11} />
+          </Link>
         </div>
-
-        {sc !== null && (
-          <div className="flex flex-col items-center flex-shrink-0">
-            {/* Donut score */}
-            <svg width="56" height="56" viewBox="0 0 56 56">
-              <circle cx="28" cy="28" r="22" fill="none" stroke="var(--border)" strokeWidth="5" />
-              <circle
-                cx="28" cy="28" r="22" fill="none"
-                stroke={scoreColor(sc)} strokeWidth="5"
-                strokeLinecap="round"
-                strokeDasharray={`${(sc / 100) * 138.2} 138.2`}
-                transform="rotate(-90 28 28)"
-                style={{ transition: 'stroke-dasharray 0.6s ease' }}
-              />
-              <text x="28" y="32" textAnchor="middle" fontSize="12" fontWeight="700"
-                fill={scoreColor(sc)}>{sc}</text>
-            </svg>
-            <Badge color={scoreColorName(sc)} className="text-[10px] mt-0.5">{scoreLabel(sc)}</Badge>
-          </div>
-        )}
-
-        <Link
-          to={`/meals/${meal.id}`}
-          className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:opacity-80 transition-opacity"
-        >
-          View
-        </Link>
       </div>
     </Card>
   );
 }
 
-/* ── Nutrition Breakdown Row (school) ──────────────────────────────────────── */
+/* ─── NutritionStatusRow ─────────────────────────────────────────────────── */
 function NutritionStatusRow({ reports }) {
   if (!reports?.length) return null;
-
   const total = reports.length;
-  const adequate = reports.filter((r) => r.overall_status === 'adequate').length;
+  const adequate  = reports.filter((r) => r.overall_status === 'adequate').length;
   const deficient = reports.filter((r) => r.overall_status === 'deficient').length;
-  const excess = reports.filter((r) => r.overall_status === 'excess').length;
-
-  const pctAdequate = Math.round((adequate / total) * 100);
-  const pctDeficient = Math.round((deficient / total) * 100);
+  const excess    = reports.filter((r) => r.overall_status === 'excess').length;
 
   return (
     <Card className="mb-5">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-4">
         <Activity size={15} className="text-[var(--text-muted)]" />
-        <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-          Latest Nutrition Reports
-        </span>
+        <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Latest Nutrition Reports</span>
         <Link to="/nutrition" className="ml-auto text-xs text-[var(--accent)] hover:opacity-80 flex items-center gap-1">
           All reports <ArrowRight size={11} />
         </Link>
       </div>
-
-      {/* Stacked bar */}
-      <div className="flex rounded-full overflow-hidden h-2.5 mb-3 gap-0.5">
-        {pctAdequate > 0 && (
-          <div className="h-full rounded-full" style={{ width: `${pctAdequate}%`, background: 'var(--accent)' }} />
-        )}
-        {pctDeficient > 0 && (
-          <div className="h-full rounded-full" style={{ width: `${pctDeficient}%`, background: 'var(--red)' }} />
-        )}
-        {excess > 0 && (
-          <div className="h-full rounded-full" style={{ width: `${Math.round((excess / total) * 100)}%`, background: 'var(--amber)' }} />
-        )}
+      <div className="flex rounded-full overflow-hidden h-3 mb-4 gap-0.5">
+        {adequate  > 0 && <div className="h-full rounded-full" style={{ width: `${Math.round((adequate  / total) * 100)}%`, background: 'var(--accent)' }} />}
+        {deficient > 0 && <div className="h-full rounded-full" style={{ width: `${Math.round((deficient / total) * 100)}%`, background: 'var(--red)' }} />}
+        {excess    > 0 && <div className="h-full rounded-full" style={{ width: `${Math.round((excess    / total) * 100)}%`, background: 'var(--amber)' }} />}
       </div>
-
-      <div className="flex gap-4">
+      <div className="flex gap-5">
         {[
-          { label: 'Adequate', count: adequate, color: 'var(--accent)' },
+          { label: 'Adequate',  count: adequate,  color: 'var(--accent)' },
           { label: 'Deficient', count: deficient, color: 'var(--red)' },
-          { label: 'Excess', count: excess, color: 'var(--amber)' },
+          { label: 'Excess',    count: excess,    color: 'var(--amber)' },
         ].map(({ label, count, color }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+          <div key={label} className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
             <span className="text-xs text-[var(--text-muted)]">{label}</span>
-            <span className="text-xs font-bold text-[var(--text-primary)]">{count}</span>
+            <span className="text-sm font-bold text-[var(--text-primary)]">{count}</span>
           </div>
         ))}
-        <span className="ml-auto text-xs text-[var(--text-muted)]">{total} students</span>
+        <span className="ml-auto text-xs text-[var(--text-muted)]">{total} total</span>
       </div>
     </Card>
   );
 }
 
-/* ── At-Risk Panel ──────────────────────────────────────────────────────────── */
+/* ─── AtRiskPanel ────────────────────────────────────────────────────────── */
 function AtRiskPanel({ riskStats, totalStudents }) {
   const rows = [
-    { label: 'Critical', count: riskStats?.critical ?? '—', icon: ShieldAlert, color: 'var(--red)', dim: 'var(--red-dim)', desc: 'Severe thinness / SAM' },
-    { label: 'High Risk', count: riskStats?.highRisk ?? '—', icon: AlertTriangle, color: 'var(--amber)', dim: 'var(--amber-dim)', desc: 'Thinness, needs attention' },
-    { label: 'Moderate Risk', count: riskStats?.moderate ?? '—', icon: AlertTriangle, color: 'var(--yellow,#eab308)', dim: 'rgba(234,179,8,0.12)', desc: 'Monitor closely' },
+    { label: 'Critical',      count: riskStats?.critical ?? 0, icon: ShieldAlert,   color: 'var(--red)',   dim: 'var(--red-dim)',   desc: 'Severe / SAM' },
+    { label: 'High Risk',     count: riskStats?.highRisk  ?? 0, icon: AlertTriangle, color: 'var(--amber)', dim: 'var(--amber-dim)', desc: 'Needs attention' },
+    { label: 'Moderate Risk', count: riskStats?.moderate  ?? 0, icon: AlertTriangle, color: 'var(--amber)', dim: 'var(--amber-dim)', desc: 'Monitor closely' },
   ];
   const flagged = (riskStats?.critical ?? 0) + (riskStats?.highRisk ?? 0) + (riskStats?.moderate ?? 0);
   const pct = totalStudents ? Math.round((flagged / totalStudents) * 100) : null;
@@ -247,142 +228,110 @@ function AtRiskPanel({ riskStats, totalStudents }) {
 
       <div className="flex flex-col gap-2 mb-4">
         {rows.map(({ label, count, icon: Icon, color, dim, desc }) => (
-          <div key={label} className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] border border-[var(--border)]"
+          <div key={label} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[var(--border)]"
             style={{ background: dim + '66' }}>
-            <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: dim }}>
-              <Icon size={12} style={{ color }} />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: dim }}>
+              <Icon size={13} style={{ color }} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs font-semibold" style={{ color }}>{label}</div>
               <div className="text-[10px] text-[var(--text-muted)]">{desc}</div>
             </div>
-            <div className="text-lg font-bold flex-shrink-0" style={{ color }}>{count}</div>
+            <div className="text-xl font-bold flex-shrink-0" style={{ color }}>{count}</div>
           </div>
         ))}
       </div>
 
-      <div className="px-3 py-2.5 bg-[var(--bg-hover)] rounded-[10px] border border-[var(--border)] mb-3">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs text-[var(--text-muted)]">Total flagged</span>
-          <span className="text-sm font-bold text-[var(--text-primary)]">
-            {flagged}{pct !== null ? ` (${pct}%)` : ''}
-          </span>
-        </div>
-        {pct !== null && (
+      {pct !== null && (
+        <div className="px-3 py-2.5 bg-[var(--bg-hover)] rounded-xl border border-[var(--border)] mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-[var(--text-muted)]">Total flagged</span>
+            <span className="text-sm font-bold text-[var(--text-primary)]">{flagged} <span className="text-[var(--text-muted)] font-normal">({pct}%)</span></span>
+          </div>
           <div className="h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
             <div className="h-full rounded-full transition-all duration-500"
               style={{ width: `${Math.min(pct, 100)}%`, background: pct > 20 ? 'var(--red)' : pct > 10 ? 'var(--amber)' : 'var(--accent)' }} />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <Link to="/at-risk"
-        className="flex items-center justify-center gap-2 w-full py-2 rounded-[10px] bg-[var(--accent-dim)] text-[var(--accent)] text-xs font-semibold hover:opacity-80 transition-opacity">
+        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-[var(--accent-dim)] text-[var(--accent)] text-xs font-semibold hover:opacity-80 transition-opacity border border-[var(--accent-border)]">
         View At-Risk Students <ArrowRight size={12} />
       </Link>
     </Card>
   );
 }
 
-/* ── Recent Meals List ──────────────────────────────────────────────────────── */
+/* ─── RecentMeals ────────────────────────────────────────────────────────── */
 function RecentMeals({ meals }) {
   if (!meals?.length) return null;
-  const recent = meals.slice(0, 4);
   return (
     <Card>
       <div className="flex items-center justify-between mb-3">
         <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Recent Meals</div>
         <Link to="/meals" className="text-xs text-[var(--accent)] hover:opacity-80">All →</Link>
       </div>
-      <div className="flex flex-col gap-1.5">
-        {recent.map((m) => {
-          const d = new Date(m.served_date);
-          const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-          return (
-            <Link key={m.id} to={`/meals/${m.id}`}>
-              <div className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors">
-                <div className="w-6 h-6 rounded-md bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
-                  <UtensilsCrossed size={11} className="text-[var(--accent)]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{m.name}</div>
-                </div>
-                <div className="text-[10px] text-[var(--text-muted)] flex-shrink-0">{label}</div>
+      <div className="flex flex-col gap-1">
+        {meals.slice(0, 4).map((m) => (
+          <Link key={m.id} to={`/meals/${m.id}`}>
+            <div className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl hover:bg-[var(--bg-hover)] transition-colors group">
+              <div className="w-7 h-7 rounded-lg bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
+                <UtensilsCrossed size={12} className="text-[var(--accent)]" />
               </div>
-            </Link>
-          );
-        })}
+              <span className="flex-1 text-xs font-semibold text-[var(--text-primary)] truncate">{m.name}</span>
+              <span className="text-[10px] text-[var(--text-muted)] flex-shrink-0">
+                {new Date(m.served_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              </span>
+              <ChevronRight size={12} className="text-[var(--text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </Link>
+        ))}
       </div>
     </Card>
   );
 }
 
-/* ── Main Page ──────────────────────────────────────────────────────────────── */
+/* ─── Main Page ──────────────────────────────────────────────────────────── */
 export default function DashboardPage() {
   const { user, isSchool, isTeacher } = useAuth();
-  const [stats, setStats] = useState(null);
-  const [riskStats, setRiskStats] = useState(null);
-  const [todaysMeal, setTodaysMeal] = useState(undefined); // undefined = loading, null = none
-  const [mealScore, setMealScore] = useState(null);
-  const [recentMeals, setRecentMeals] = useState([]);
+  const [stats, setStats]                   = useState(null);
+  const [riskStats, setRiskStats]           = useState(null);
+  const [todaysMeal, setTodaysMeal]         = useState(undefined);
+  const [mealScore, setMealScore]           = useState(null);
+  const [recentMeals, setRecentMeals]       = useState([]);
   const [nutritionSummary, setNutritionSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]               = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        // ── Today's meal (both roles) ──────────────────────────────────────
         const mealRes = await getTodaysMeal().catch(() => null);
         const meal = mealRes?.data?.meal ?? null;
-        setTodaysMeal({ ...meal, ingredients: mealRes?.data?.ingredients || [] });
+        setTodaysMeal(meal ? { ...meal, ingredients: mealRes?.data?.ingredients || [] } : null);
+        if (meal?.id) getMealScore(meal.id).then((r) => setMealScore(r.data?.score ?? null)).catch(() => {});
 
-        if (meal?.id) {
-          getMealScore(meal.id)
-            .then((r) => setMealScore(r.data?.score ?? null))
-            .catch(() => {});
-        }
-
-        // ── Recent meals ───────────────────────────────────────────────────
         const mealsRes = await getMeals().catch(() => null);
         const allMeals = mealsRes?.data?.meals || [];
-        const sorted = [...allMeals].sort((a, b) => new Date(b.served_date) - new Date(a.served_date));
-        setRecentMeals(sorted);
+        setRecentMeals([...allMeals].sort((a, b) => new Date(b.served_date) - new Date(a.served_date)));
 
-        // ── Role-specific stats ────────────────────────────────────────────
         if (isSchool) {
           const [t, c, s, critical, highRisk, moderate, reports] = await Promise.allSettled([
-            getTeachers(),
-            getClasses(),
-            getStudents(),
+            getTeachers(), getClasses(), getStudents(),
             getStudents({ malnutrition_label: 'Critical' }),
             getStudents({ malnutrition_label: 'High Risk' }),
             getStudents({ malnutrition_label: 'Moderate Risk' }),
-            // latest meal's reports for nutrition bar
             meal?.id ? getSchoolReports({ meal_id: meal.id }) : Promise.resolve(null),
           ]);
-
-          setStats({
-            teachers: t.value?.data?.teachers?.length ?? '-',
-            classes: c.value?.data?.classes?.length ?? '-',
-            students: s.value?.data?.total ?? s.value?.data?.students?.length ?? '-',
-            meals: allMeals.length,
-          });
-          setRiskStats({
-            critical: critical.value?.data?.total ?? critical.value?.data?.students?.length ?? 0,
-            highRisk: highRisk.value?.data?.total ?? highRisk.value?.data?.students?.length ?? 0,
-            moderate: moderate.value?.data?.total ?? moderate.value?.data?.students?.length ?? 0,
-          });
-          if (reports.value?.data?.reports?.length) {
-            setNutritionSummary(reports.value.data.reports);
-          }
+          setStats({ teachers: t.value?.data?.teachers?.length ?? '-', classes: c.value?.data?.classes?.length ?? '-', students: s.value?.data?.total ?? s.value?.data?.students?.length ?? '-', meals: allMeals.length });
+          setRiskStats({ critical: critical.value?.data?.total ?? critical.value?.data?.students?.length ?? 0, highRisk: highRisk.value?.data?.total ?? highRisk.value?.data?.students?.length ?? 0, moderate: moderate.value?.data?.total ?? moderate.value?.data?.students?.length ?? 0 });
+          if (reports.value?.data?.reports?.length) setNutritionSummary(reports.value.data.reports);
         } else {
-          // teacher
           const [profile, classRes] = await Promise.allSettled([getTeacherProfile(), getClasses()]);
           const profileData = profile.value?.data?.teacher;
           const teacherId = getTeacherId(user, profileData);
           const classList = classRes.value?.data?.classes || [];
           const assignedClasses = normaliseAssignedClasses(profileData, classList, teacherId);
-
           const classesWithCounts = await Promise.all(
             assignedClasses.map(async (cl) => {
               const res = await getStudentsByClass(cl.id).catch(() => null);
@@ -390,32 +339,23 @@ export default function DashboardPage() {
             })
           );
           const studentCount = classesWithCounts.reduce((s, c) => s + c.studentCount, 0);
-
           const riskResults = await Promise.allSettled(
-            assignedClasses.map((cl) =>
-              Promise.allSettled([
-                getStudentsByClass(cl.id, { malnutrition_label: 'Critical' }),
-                getStudentsByClass(cl.id, { malnutrition_label: 'High Risk' }),
-                getStudentsByClass(cl.id, { malnutrition_label: 'Moderate Risk' }),
-              ])
-            )
+            assignedClasses.map((cl) => Promise.allSettled([
+              getStudentsByClass(cl.id, { malnutrition_label: 'Critical' }),
+              getStudentsByClass(cl.id, { malnutrition_label: 'High Risk' }),
+              getStudentsByClass(cl.id, { malnutrition_label: 'Moderate Risk' }),
+            ]))
           );
           let tCritical = 0, tHigh = 0, tModerate = 0;
           riskResults.forEach((r) => {
             if (r.status === 'fulfilled') {
-              tCritical  += r.value[0].value?.data?.total ?? r.value[0].value?.data?.students?.length ?? 0;
-              tHigh      += r.value[1].value?.data?.total ?? r.value[1].value?.data?.students?.length ?? 0;
-              tModerate  += r.value[2].value?.data?.total ?? r.value[2].value?.data?.students?.length ?? 0;
+              tCritical += r.value[0].value?.data?.total ?? r.value[0].value?.data?.students?.length ?? 0;
+              tHigh     += r.value[1].value?.data?.total ?? r.value[1].value?.data?.students?.length ?? 0;
+              tModerate += r.value[2].value?.data?.total ?? r.value[2].value?.data?.students?.length ?? 0;
             }
           });
           setRiskStats({ critical: tCritical, highRisk: tHigh, moderate: tModerate });
-          setStats({
-            profile: profileData,
-            classes: assignedClasses.length,
-            assignedClasses: classesWithCounts,
-            students: studentCount,
-            meals: allMeals.length,
-          });
+          setStats({ profile: profileData, classes: assignedClasses.length, assignedClasses: classesWithCounts, students: studentCount, meals: allMeals.length });
         }
       } catch (e) {
         console.error(e);
@@ -423,7 +363,6 @@ export default function DashboardPage() {
         setLoading(false);
       }
     };
-
     fetchAll();
   }, [isSchool, user]);
 
@@ -431,93 +370,84 @@ export default function DashboardPage() {
 
   const totalStudents = typeof stats?.students === 'number' ? stats.students : null;
   const flagged = (riskStats?.critical ?? 0) + (riskStats?.highRisk ?? 0);
-  const hasCriticalAlert = flagged > 0;
+  const isCritical = (riskStats?.critical ?? 0) > 0;
 
   return (
-    <div className="animate-fade-in">
-      {/* ── Greeting ── */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-          Good day, {user?.name?.split(' ')[0]} 👋
-        </h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">
-          {isSchool ? 'School administration overview' : 'Your teaching dashboard'}
-        </p>
+    <div>
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+            {getGreeting()}, {user?.name?.split(' ')[0]} 👋
+          </h1>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            {isSchool ? 'School administration overview' : 'Your teaching dashboard'}
+          </p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="text-[15px] font-semibold text-[var(--text-primary)]">
+            {new Date().toLocaleDateString('en-IN', { weekday: 'long' })}
+          </div>
+          <div className="text-xs text-[var(--text-muted)] mt-0.5">
+            {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </div>
+        </div>
       </div>
 
-      {/* ── Critical alert banner ── */}
-      {hasCriticalAlert && (
+      {/* ── Alert banner ── */}
+      {flagged > 0 && (
         <Link to="/at-risk">
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--red-dim)] border border-[rgba(248,113,113,0.35)] mb-5 hover:opacity-90 transition-opacity">
-            <BellRing size={16} className="text-[var(--red)] flex-shrink-0" />
-            <span className="text-sm text-[var(--red)] font-medium flex-1">
-              {riskStats.critical > 0
-                ? `${riskStats.critical} student${riskStats.critical !== 1 ? 's' : ''} in Critical condition`
-                : `${riskStats.highRisk} student${riskStats.highRisk !== 1 ? 's are' : ' is'} High Risk`}
-              {' '}— tap to review
-            </span>
-            <ChevronRight size={14} className="text-[var(--red)] flex-shrink-0" />
+          <div className="flex items-start gap-4 px-5 py-2 rounded-xl mb-5
+                          bg-[#f3e1e1] border border-[#F09595]
+                          hover:border-[#E24B4A] transition-colors duration-150 cursor-pointer">
+            <div className="w-2 h-2 rounded-full bg-[#E24B4A] flex-shrink-0 mt-[5px]" />
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-bold text-[#b12020] uppercase tracking-wider mb-1">
+                High priority
+              </div>
+              <div className="text-[13px] text-[#c61515] leading-snug">
+                {isCritical
+                  ? `${riskStats.critical} student${riskStats.critical !== 1 ? 's' : ''} in critical condition — requires close attention.`
+                  : `${riskStats.highRisk} student${riskStats.highRisk !== 1 ? 's' : ''} flagged as high risk — review recommended.`}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-[12px] font-semibold text-[#A32D2D] flex-shrink-0 self-end">
+              Review <ArrowRight size={12} />
+            </div>
           </div>
         </Link>
       )}
 
       <div className="flex gap-6 items-start">
-        {/* ── Left column ── */}
+        {/* Left column */}
         <div className="flex-1 min-w-0">
 
           {/* Stat cards */}
-          <div className="grid grid-cols-2 gap-4 mb-5">
+          <div className="grid grid-cols-2 gap-4 mb-6">
             {isSchool ? (
               <>
-                <StatCard label="Teachers" value={stats?.teachers} icon={UserSquare2} color="blue" to="/teachers" />
-                <StatCard label="Classes" value={stats?.classes} icon={BookOpen} color="amber" to="/classes" />
-                <StatCard label="Total Students" value={stats?.students} icon={Users} color="purple" to="/students" />
-                <StatCard
-                  label="Meals Logged"
-                  value={stats?.meals}
-                  icon={UtensilsCrossed}
-                  color="green"
-                  to="/meals"
-                  sublabel={`${recentMeals.length} this period`}
-                />
+                <StatCard label="Teachers"      value={stats?.teachers} icon={UserSquare2}    color="blue"   to="/teachers" />
+                <StatCard label="Classes"        value={stats?.classes}  icon={BookOpen}        color="amber"  to="/classes" />
+                <StatCard label="Total Students" value={stats?.students} icon={Users}           color="purple" to="/students" />
+                <StatCard label="Meals Logged"   value={stats?.meals}    icon={UtensilsCrossed} color="green"  to="/meals" sublabel={`${recentMeals.length} this period`} />
               </>
             ) : (
               <>
-                <StatCard label="Assigned Classes" value={stats?.classes} icon={BookOpen} color="amber" />
-                <StatCard label="My Students" value={stats?.students} icon={Users} color="purple" to="/students" />
-                <StatCard label="Meals Logged" value={stats?.meals} icon={UtensilsCrossed} color="green" to="/meals" />
-                <StatCard
-                  label="At-Risk Students"
-                  value={(riskStats?.critical ?? 0) + (riskStats?.highRisk ?? 0)}
-                  icon={ShieldAlert}
-                  color={(riskStats?.critical ?? 0) > 0 ? 'red' : 'amber'}
-                  to="/at-risk"
-                  sublabel="Critical + High Risk"
-                />
+                <StatCard label="Assigned Classes"  value={stats?.classes}  icon={BookOpen}        color="amber" />
+                <StatCard label="My Students"        value={stats?.students} icon={Users}           color="purple" to="/students" />
+                <StatCard label="Meals Logged"       value={stats?.meals}    icon={UtensilsCrossed} color="green"  to="/meals" />
+                <StatCard label="At-Risk Students"   value={(riskStats?.critical ?? 0) + (riskStats?.highRisk ?? 0)} icon={ShieldAlert} color={(riskStats?.critical ?? 0) > 0 ? 'red' : 'amber'} to="/at-risk" sublabel="Critical + High Risk" />
               </>
             )}
           </div>
 
-          {/* Today's meal */}
-          <TodaysMealCard
-            meal={todaysMeal?.id ? todaysMeal : null}
-            score={mealScore}
-          />
-
-          {/* Nutrition summary (school only, when reports exist) */}
-          {isSchool && nutritionSummary && (
-            <NutritionStatusRow reports={nutritionSummary} />
-          )}
-
-          {/* Teacher: assigned class cards */}
-          {isTeacher && (
-            <AssignedClassCards classes={stats?.assignedClasses || []} className="mb-5" />
-          )}
-
-
+          <TodaysMealCard meal={todaysMeal?.id ? todaysMeal : null} score={mealScore} />
+          {isSchool && nutritionSummary && <NutritionStatusRow reports={nutritionSummary} />}
+          {isTeacher && <AssignedClassCards classes={stats?.assignedClasses || []} className="mb-5" />}
         </div>
 
-        {/* ── Right column ── */}
+        {/* Right column */}
         <div className="w-72 flex-shrink-0 flex flex-col gap-4">
           <AtRiskPanel riskStats={riskStats} totalStudents={totalStudents} />
           <RecentMeals meals={recentMeals} />
