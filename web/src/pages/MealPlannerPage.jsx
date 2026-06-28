@@ -268,8 +268,8 @@ function IngredientSearch({ ingredients, value, onChange }) {
         {/* Dropdown */}
         {open && (
           <div
-            className="absolute left-0 right-0 top-full mt-1 z-50 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden"
-            style={{ maxHeight: 220, overflowY: 'auto' }}
+            className="absolute left-0 right-0 top-full mt-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden"
+            style={{ maxHeight: 220, overflowY: 'auto', zIndex: 9999 }}
           >
             {filtered.length === 0 ? (
               <div className="px-3 py-3 text-xs text-[var(--text-muted)] text-center">No ingredients found</div>
@@ -356,6 +356,7 @@ function InventoryManager({ ingredients, onInventoryChange }) {
   // Ingredients not yet in inventory
   const inventoryIds = new Set(inventory.map((i) => String(i.ingredient_id)));
   const available = ingredients.filter((ing) => !inventoryIds.has(String(ing.id)));
+  const openModal = () => setShowAddModal(true);
 
   return (
     <>
@@ -367,7 +368,7 @@ function InventoryManager({ ingredients, onInventoryChange }) {
               Kitchen Inventory
             </h2>
           </div>
-          <Button size="sm" icon={Plus} onClick={() => setShowAddModal(true)}>
+          <Button size="sm" icon={Plus} onClick={openModal}>
             Add Stock
           </Button>
         </div>
@@ -385,7 +386,7 @@ function InventoryManager({ ingredients, onInventoryChange }) {
             <p className="text-xs text-[var(--text-muted)] mb-4 max-w-[220px]">
               Add ingredients your kitchen has available. The AI will only suggest meals using these items.
             </p>
-            <Button size="sm" icon={Plus} onClick={() => setShowAddModal(true)}>Add Stock</Button>
+            <Button size="sm" icon={Plus} onClick={openModal}>Add Stock</Button>
           </div>
         ) : (
           <div className="flex flex-col gap-1.5">
