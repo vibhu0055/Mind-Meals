@@ -226,7 +226,7 @@ export default function ClassesPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="px-4 py-2.5 flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                   <Button
                     variant="secondary"
                     size="sm"
@@ -290,7 +290,7 @@ export default function ClassesPage() {
           <p className="text-[11px] text-[var(--text-muted)] -mt-2">
             Level is used to calculate PM POSHAN benchmarks for this class.
           </p>
-          <div className="flex gap-3 mt-1">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row">
             <Button variant="secondary" className="flex-1" onClick={() => setShowCreate(false)} type="button">
               Cancel
             </Button>
@@ -347,7 +347,7 @@ export default function ClassesPage() {
             </p>
           )}
 
-          <div className="flex gap-3 mt-1">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row">
             <Button
               variant="secondary"
               className="flex-1"
@@ -403,7 +403,7 @@ export default function ClassesPage() {
           <p className="text-[11px] text-[var(--text-muted)] -mt-2">
             Setting a level enables PM POSHAN benchmarks for students in this class.
           </p>
-          <div className="flex gap-3 mt-1">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row">
             <Button variant="secondary" className="flex-1" onClick={() => setShowEdit(false)} type="button">
               Cancel
             </Button>

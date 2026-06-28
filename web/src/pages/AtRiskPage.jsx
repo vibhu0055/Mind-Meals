@@ -47,7 +47,7 @@ function StudentCard({ student, categoryLabel, categoryColor, badgeColor, onNoti
 
   return (
     <Card>
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         {/* WHO label pill */}
         <div
           className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold"
@@ -83,7 +83,7 @@ function StudentCard({ student, categoryLabel, categoryColor, badgeColor, onNoti
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
           {canNotify && (
             <Button
               variant="danger"
@@ -159,7 +159,7 @@ export default function AtRiskPage() {
       />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {RISK_CATEGORIES.map(({ label, color, dim, icon: Icon, desc }) => (
           <Card key={label}>
             <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: dim }}>

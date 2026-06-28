@@ -226,9 +226,9 @@ export default function HealthPage() {
         }
       />
 
-      <div className="flex gap-3 mb-6">
+      <div className="mb-6 flex flex-wrap gap-3">
         <Select
-          className="w-64"
+          className="w-full sm:w-64"
           value={selectedStudent}
           onChange={(e) =>
             setSelectedStudent(e.target.value)
@@ -306,7 +306,7 @@ export default function HealthPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   {[
                     {
                       label: 'Height',
@@ -381,7 +381,7 @@ export default function HealthPage() {
             ))}
           </Select>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input
               label="Height (cm)"
               type="number"
@@ -412,7 +412,7 @@ export default function HealthPage() {
             onChange={set('muac_cm')}
           />
 
-          <div className="flex gap-3 mt-1">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row">
             <Button
               variant="secondary"
               className="flex-1"

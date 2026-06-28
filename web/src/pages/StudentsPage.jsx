@@ -207,9 +207,9 @@ export default function StudentsPage() {
         }
       />
 
-      <div className="flex gap-3 mb-6">
+      <div className="mb-6 flex flex-wrap gap-3">
         <Select
-          className="w-56"
+          className="w-full sm:w-56"
           value={filterClass}
           onChange={(e) => setFilterClass(e.target.value)}
         >
@@ -220,7 +220,7 @@ export default function StudentsPage() {
         </Select>
 
         <Select
-          className="w-52"
+          className="w-full sm:w-52"
           value={filterMalnutrition}
           onChange={(e) => setFilterMalnutrition(e.target.value)}
         >
@@ -244,7 +244,7 @@ export default function StudentsPage() {
         <div className="grid gap-2">
           {students.map((s) => {
             return (
-              <Card key={s.id} className="flex items-center gap-4">
+              <Card key={s.id} className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 {/* Avatar */}
                 <div className="w-10 h-10 rounded-full bg-[var(--purple-dim)] flex items-center justify-center flex-shrink-0 text-sm font-bold text-[var(--purple)]">
                   {getInitials(s.name)}
@@ -264,7 +264,7 @@ export default function StudentsPage() {
                 </div>
 
                 {/* WHO status — fixed width */}
-                <div className="w-28 flex-shrink-0 flex justify-center">
+                <div className="flex justify-center sm:w-28 sm:flex-shrink-0">
                   {s.malnutrition_label ? (
                     <Badge color={malnutritionColor(s.malnutrition_label)} className="px-2.5 py-1 text-xs font-semibold">
                       {s.malnutrition_label}
@@ -275,7 +275,7 @@ export default function StudentsPage() {
                 </div>
 
                 {/* BMI — fixed width */}
-                <div className="w-12 flex-shrink-0 text-right">
+                <div className="text-left sm:w-12 sm:flex-shrink-0 sm:text-right">
                   {s.bmi != null ? (
                     <>
                       <div className="text-[10px] text-[var(--text-muted)]">BMI</div>
@@ -287,7 +287,7 @@ export default function StudentsPage() {
                 </div>
 
                 {/* Actions — fixed width, placeholder keeps Profile aligned when Notify absent */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0">
                   {(s.malnutrition_label === 'Critical' || s.malnutrition_label === 'High Risk') &&
                     (s.parent_email || s.parent_phone) ? (
                       <Button variant="danger" size="sm" icon={BellRing} loading={notifying === s.id} onClick={() => handleNotify(s.id)}>
@@ -322,7 +322,7 @@ export default function StudentsPage() {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Add Student">
         <form onSubmit={handleAdd} className="flex flex-col gap-4">
           <Input label="Student Name" placeholder="Full name" value={form.name} onChange={set('name')} error={errors.name} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input label="Age" type="number" placeholder="8" min="1" max="20" value={form.age} onChange={set('age')} error={errors.age} />
             <Select label="Gender" value={form.gender} onChange={set('gender')}>
               <option value="male">Male</option>
@@ -345,12 +345,12 @@ export default function StudentsPage() {
             <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
               Parent Contact <span className="font-normal normal-case text-[var(--text-muted)]">(optional — enables alert notifications)</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Input label="Parent Email" type="email" placeholder="parent@gmail.com" value={form.parent_email} onChange={set('parent_email')} />
               <Input label="Parent Phone" type="tel" placeholder="+919876543210" value={form.parent_phone} onChange={set('parent_phone')} />
             </div>
           </div>
-          <div className="flex gap-3 mt-1">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row">
             <Button variant="secondary" className="flex-1" onClick={() => setShowModal(false)} type="button">Cancel</Button>
             <Button className="flex-1" loading={submitting} type="submit">Add Student</Button>
           </div>
@@ -360,7 +360,7 @@ export default function StudentsPage() {
       <Modal isOpen={!!editStudent} onClose={closeEdit} title={`Edit — ${editStudent?.name || 'Student'}`}>
         <form onSubmit={handleEdit} className="flex flex-col gap-4">
           <Input label="Student Name" placeholder="Full name" value={form.name} onChange={set('name')} error={errors.name} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input label="Age" type="number" placeholder="8" min="1" max="20" value={form.age} onChange={set('age')} error={errors.age} />
             <Select label="Gender" value={form.gender} onChange={set('gender')}>
               <option value="male">Male</option>
@@ -382,12 +382,12 @@ export default function StudentsPage() {
             <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
               Parent Contact <span className="font-normal normal-case text-[var(--text-muted)]">(optional — enables alert notifications)</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Input label="Parent Email" type="email" placeholder="parent@gmail.com" value={form.parent_email} onChange={set('parent_email')} />
               <Input label="Parent Phone" type="tel" placeholder="+919876543210" value={form.parent_phone} onChange={set('parent_phone')} />
             </div>
           </div>
-          <div className="flex gap-3 mt-1">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row">
             <Button variant="secondary" className="flex-1" onClick={closeEdit} type="button">Cancel</Button>
             <Button className="flex-1" loading={submitting} type="submit">Save Changes</Button>
           </div>

@@ -4,7 +4,7 @@ import { useAuth } from '../../features/auth/AuthContext';
 import {
   LayoutDashboard, Users, BookOpen, UserSquare2,
   HeartPulse, UtensilsCrossed, BarChart3, LogOut,
-  Leaf, Moon, Sun, ShieldAlert, Sparkles, ChevronRight
+  Leaf, Moon, Sun, ShieldAlert, Sparkles, ChevronRight, X
 } from 'lucide-react';
 
 const schoolLinks = [
@@ -91,7 +91,7 @@ const css = `
   }
 `;
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen = true, onClose }) {
   const { user, logout, isSchool } = useAuth();
   const navigate = useNavigate();
   const links = isSchool ? schoolLinks : teacherLinks;
@@ -114,19 +114,9 @@ export default function Sidebar() {
       <style>{css}</style>
 
       <aside
+        className={`fixed left-0 top-0 z-30 flex h-screen w-[220px] flex-col border-r border-[var(--border)] bg-[var(--bg-surface)] font-['Sora'] shadow-xl transition-transform duration-200 ease-out md:translate-x-0 md:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
         style={{
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          height: '100vh',
-          width: 220,
-          display: 'flex',
-          flexDirection: 'column',
-          zIndex: 30,
-          background: 'var(--bg-surface)',
-          borderRight: '1px solid var(--border)',
           borderRadius: '0 18px 18px 0',
-          fontFamily: "'Sora', sans-serif",
         }}
       >
         {/* ── Logo ── */}
@@ -135,6 +125,14 @@ export default function Sidebar() {
           padding: '18px 16px',
           flexShrink: 0,
         }}>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close sidebar"
+            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--bg-hover)] text-[var(--text-secondary)] md:hidden"
+          >
+            <X size={16} />
+          </button>
           <div style={{
             width: 34, height: 34,
             borderRadius: '50%',
@@ -169,6 +167,7 @@ export default function Sidebar() {
             <NavLink
               key={to}
               to={to}
+              onClick={() => onClose?.()}
               className={({ isActive }) => `mm-nav-link${isActive ? ' active' : ''}`}
             >
               {({ isActive }) => (

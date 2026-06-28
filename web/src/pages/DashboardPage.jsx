@@ -376,16 +376,16 @@ export default function DashboardPage() {
     <div>
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">
             {getGreeting()}, {user?.name?.split(' ')[0]} 👋
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
             {isSchool ? 'School administration overview' : 'Your teaching dashboard'}
           </p>
         </div>
-        <div className="text-right flex-shrink-0">
+        <div className="flex-shrink-0 text-left sm:text-right">
           <div className="text-[15px] font-semibold text-[var(--text-primary)]">
             {new Date().toLocaleDateString('en-IN', { weekday: 'long' })}
           </div>
@@ -398,9 +398,7 @@ export default function DashboardPage() {
       {/* ── Alert banner ── */}
       {flagged > 0 && (
         <Link to="/at-risk">
-          <div className="flex items-start gap-4 px-5 py-2 rounded-xl mb-5
-                          bg-[#f3e1e1] border border-[#F09595]
-                          hover:border-[#E24B4A] transition-colors duration-150 cursor-pointer">
+          <div className="mb-5 flex flex-col gap-3 rounded-xl border border-[#F09595] bg-[#f3e1e1] px-5 py-3 transition-colors duration-150 hover:border-[#E24B4A] cursor-pointer sm:flex-row sm:items-start">
             <div className="w-2 h-2 rounded-full bg-[#E24B4A] flex-shrink-0 mt-[5px]" />
             <div className="flex-1 min-w-0">
               <div className="text-[11px] font-bold text-[#b12020] uppercase tracking-wider mb-1">
@@ -419,12 +417,12 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      <div className="flex gap-6 items-start">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         {/* Left column */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
 
           {/* Stat cards */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {isSchool ? (
               <>
                 <StatCard label="Teachers"      value={stats?.teachers} icon={UserSquare2}    color="blue"   to="/teachers" />
@@ -448,7 +446,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right column */}
-        <div className="w-72 flex-shrink-0 flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:w-72 lg:flex-shrink-0">
           <AtRiskPanel riskStats={riskStats} totalStudents={totalStudents} />
           <RecentMeals meals={recentMeals} />
         </div>

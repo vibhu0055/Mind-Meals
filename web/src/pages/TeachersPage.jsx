@@ -126,7 +126,7 @@ export default function TeachersPage() {
             const assignedClasses = getAssignedClasses(t);
 
             return (
-              <Card key={t.id} className="flex items-center gap-4">
+              <Card key={t.id} className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <div className="w-10 h-10 rounded-xl bg-[var(--blue-dim)] flex items-center justify-center flex-shrink-0">
                   <UserSquare2 size={18} className="text-[var(--blue)]" />
                 </div>
@@ -150,7 +150,7 @@ export default function TeachersPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                   <Button
                     variant="secondary"
                     size="sm"
@@ -178,7 +178,7 @@ export default function TeachersPage() {
           <Input label="Email" type="email" placeholder="jane@school.edu" value={form.email} onChange={set('email')} error={errors.email} />
           <Input label="Password" type="password" placeholder="Min 6 characters" value={form.password} onChange={set('password')} error={errors.password} />
           <Input label="Phone (optional)" type="tel" placeholder="+91 98765 43210" value={form.phone} onChange={set('phone')} />
-          <div className="flex gap-3 mt-1">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row">
             <Button variant="secondary" className="flex-1" onClick={() => setShowModal(false)} type="button">Cancel</Button>
             <Button className="flex-1" loading={submitting} type="submit">Create Teacher</Button>
           </div>
