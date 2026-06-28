@@ -11,9 +11,6 @@
 
 // ── Lazy transport loaders ────────────────────────────────────────────────────
 
-import dns from "node:dns";
-
-
 const getMailer = async () => {
   if (
     !process.env.SMTP_HOST ||
@@ -26,13 +23,9 @@ const getMailer = async () => {
   try {
     const nodemailer = (await import("nodemailer")).default;
 
-    const dns = await import("node:dns/promises");
-
-    console.log(await dns.lookup(process.env.SMTP_HOST, { all: true }));
-
-    return nodemailer.createTransport({
+    const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
+      port: Number(process.env.SMTP_PORT),
       secure: Number(process.env.SMTP_PORT) === 465,
 
       auth: {
@@ -40,15 +33,15 @@ const getMailer = async () => {
         pass: process.env.SMTP_PASS,
       },
 
-      // Force IPv4
-      lookup(hostname, options, callback) {
-        dns.lookup(hostname, { family: 4 }, callback);
-      },
+      connectionTimeout: 10000,
     });
 
+    await transporter.verify();
+    console.log("✅ SMTP Connected");
+
+    return transporter;
   } catch (err) {
-    console.error(err);
-    console.warn("⚠️ nodemailer not installed — email alerts disabled");
+    console.error("❌ SMTP Error:", err);
     return null;
   }
 };
@@ -253,9 +246,13 @@ export const sendMalnutritionAlert = async ({
       result.sms = 'unconfigured';
     } else {
       try {
+        const phone = parentPhone.startsWith("+")
+          ? parentPhone
+          : `+91${parentPhone}`;
+
         await client.messages.create({
           from: process.env.TWILIO_FROM_NUMBER,
-          to:   `+91${parentPhone}`,
+          to:   phone,
           body: formatAlertSMS(studentName, whoCategory, rda, bmi, recordedAt),
         });
         result.sms = 'sent';
