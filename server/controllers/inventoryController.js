@@ -6,7 +6,7 @@
 // =============================================================
 
 import pool from '../database/database.js';
-import { invalidateSuggestionsCache } from '../services/aimealservice.js';
+import { invalidateSuggestionsCache } from '../services/aiMealService.js';
 
 // =============================================================
 // UPSERT INVENTORY   POST /api/inventory
