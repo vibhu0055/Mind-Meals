@@ -741,12 +741,6 @@ function AiSuggestionsPanel({ hasInventory }) {
               <> · PM-POSHAN target: <span className="font-semibold text-[var(--text-primary)]">{meta.pm_poshan_targets.calories} kcal</span>, <span className="font-semibold text-[var(--text-primary)]">{meta.pm_poshan_targets.protein}g protein</span> per student</>
             )}
           </span>
-          <button
-            onClick={handleGenerate}
-            className="ml-auto flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors flex-shrink-0"
-          >
-            <RefreshCw size={11} /> Regenerate
-          </button>
         </div>
       )}
 
