@@ -11,7 +11,7 @@
 // =============================================================
 
 import pool from '../database/database.js';
-import { generateMealSuggestions } from '../services/aiMealService.js';
+import { generateMealSuggestions } from '../services/aimealservice.js';
 import {
   calculateMealNutrients,
   computeDistributionByRda,
