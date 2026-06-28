@@ -11,19 +11,40 @@
 
 // ── Lazy transport loaders ────────────────────────────────────────────────────
 
+import dns from "node:dns";
+
+
 const getMailer = async () => {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS)
+  if (
+    !process.env.SMTP_HOST ||
+    !process.env.SMTP_USER ||
+    !process.env.SMTP_PASS
+  ) {
     return null;
+  }
+
   try {
-    const nodemailer = (await import('nodemailer')).default;
+    const nodemailer = (await import("nodemailer")).default;
+
     return nodemailer.createTransport({
-      host:   process.env.SMTP_HOST,
-      port:   parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_PORT === '465',
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: Number(process.env.SMTP_PORT) === 465,
+
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+
+      // Force IPv4
+      lookup(hostname, options, callback) {
+        dns.lookup(hostname, { family: 4 }, callback);
+      },
     });
-  } catch {
-    console.warn('⚠️  nodemailer not installed — email alerts disabled');
+
+  } catch (err) {
+    console.error(err);
+    console.warn("⚠️ nodemailer not installed — email alerts disabled");
     return null;
   }
 };
