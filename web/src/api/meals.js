@@ -33,3 +33,6 @@ export const distributeMeal = (meal_id) => api.post(`/api/meal/${meal_id}/distri
 export const getMealSummary = (meal_id) => api.get(`/api/meal/${meal_id}/summary`);
 export const getMealScore = (meal_id) => api.get(`/api/meal/${meal_id}/score`);
 export const getMealSuggestions = (meal_id) => api.get(`/api/meal/${meal_id}/suggestions`);
+// ── AI Meal Suggestions ───────────────────────────────────────
+export const getAiMealSuggestions = () => api.get('/api/meal/ai-suggestions');
+export const confirmAiMealSuggestion = (data) => api.post('/api/meal/ai-suggestions/confirm', data);

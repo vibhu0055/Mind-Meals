@@ -5,11 +5,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import pool from '../database/database.js';
+import { inventoryTable } from '../models/tables/inventoryTable.js';
 import { createTables } from '../models/createTables.js';
 import { seedRDA } from '../database/seedRDA.js';
 
 const run = async () => {
   try {
+    await inventoryTable();
+    
     await pool.query('SELECT NOW()');
     console.log('✅ Database connected');
 

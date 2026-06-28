@@ -18,6 +18,8 @@ import {
   getMealScore,
   getMealSuggestions,
 } from '../controllers/mealController.js';
+import { getAiMealSuggestions, confirmAiMealSuggestion } from '../controllers/aiMealController.js';
+
 
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -53,6 +55,10 @@ router.post(
   requireMealPermission,
   createMeal
 );
+
+// ── AI Meal Suggestions ──────────────────────────────────────
+router.get('/ai-suggestions', protect(['school', 'teacher']), requireMealPermission, getAiMealSuggestions);
+router.post('/ai-suggestions/confirm', protect(['school', 'teacher']), requireMealPermission, confirmAiMealSuggestion);
 
 // ── Single meal CRUD ──────────────────────────────────────────
 router.get('/:meal_id', protect(['school', 'teacher']), getMealById);
