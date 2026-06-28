@@ -57,28 +57,6 @@ app.get('/', (req, res) => {
   res.send('MealMind API running ✅');
 });
 
-//Test
-import net from "node:net";
-
-app.get("/smtp-test", (req, res) => {
-  const socket = net.createConnection(587, "smtp-relay.brevo.com");
-
-  socket.setTimeout(10000);
-
-  socket.on("connect", () => {
-    res.send("SMTP Port Open ✅");
-    socket.end();
-  });
-
-  socket.on("timeout", () => {
-    res.status(500).send("SMTP Timeout");
-    socket.destroy();
-  });
-
-  socket.on("error", (err) => {
-    res.status(500).send(err.message);
-  });
-});
 
 // =========================
 // START SERVER

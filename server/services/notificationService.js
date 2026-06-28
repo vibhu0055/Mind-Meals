@@ -11,39 +11,32 @@
 
 // ── Lazy transport loaders ────────────────────────────────────────────────────
 
-const getMailer = async () => {
-  if (
-    !process.env.SMTP_HOST ||
-    !process.env.SMTP_USER ||
-    !process.env.SMTP_PASS
-  ) {
-    return null;
-  }
+const sendBrevoEmail = async ({ to, subject, htmlContent }) => {
+  if (!process.env.BREVO_API_KEY) return null;
 
-  try {
-    const nodemailer = (await import("nodemailer")).default;
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: Number(process.env.SMTP_PORT) === 465,
-
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": process.env.BREVO_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: {
+        name: "MealMind",
+        email: process.env.SMTP_FROM,
       },
+      to: [{ email: to }],
+      subject,
+      htmlContent,
+    }),
+  });
 
-      connectionTimeout: 10000,
-    });
-
-    await transporter.verify();
-    console.log("✅ SMTP Connected");
-
-    return transporter;
-  } catch (err) {
-    console.error("❌ SMTP Error:", err);
-    return null;
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Brevo API error ${res.status}: ${err}`);
   }
+
+  return res;
 };
 
 const getTwilio = async () => {
@@ -218,17 +211,15 @@ export const sendMalnutritionAlert = async ({
 
   // ── Email ──────────────────────────────────────────────────────────────────
   if (parentEmail) {
-    const mailer = await getMailer();
-    if (!mailer) {
+    if (!process.env.BREVO_API_KEY) {
       result.email = 'unconfigured';
     } else {
       try {
         const sev = SEVERITY[whoCategory];
-        await mailer.sendMail({
-          from:    process.env.SMTP_FROM || process.env.SMTP_USER,
-          to:      parentEmail,
-          subject: `${sev.emoji} Health Alert for ${studentName} — ${sev.label}`,
-          html:    formatAlertEmail(studentName, whoCategory, rda, bmi, recordedAt, className),
+        await sendBrevoEmail({
+          to:          parentEmail,
+          subject:     `${sev.emoji} Health Alert for ${studentName} — ${sev.label}`,
+          htmlContent: formatAlertEmail(studentName, whoCategory, rda, bmi, recordedAt, className),
         });
         result.email = 'sent';
       } catch (err) {
