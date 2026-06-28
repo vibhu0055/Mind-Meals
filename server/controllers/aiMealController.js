@@ -1,26 +1,20 @@
 // =============================================================
 // AI MEAL SUGGESTION CONTROLLER
-//
-// GET  /api/meal/ai-suggestions
-//   → Cache-first. Returns cached result if today's exists.
-//     Only calls Gemini on a cache miss.
-//     Pass ?refresh=true to force a new Gemini call.
-//
-// POST /api/meal/ai-suggestions/confirm
-//   → Teacher picks one suggestion; auto-creates today's meal.
+// Change: confirmAiMealSuggestion now deducts inventory on confirm.
 // =============================================================
 
 import pool from '../database/database.js';
-import { generateMealSuggestions } from '../services/aimealservice.js';
+import { generateMealSuggestions } from '../services/aiMealService.js';
 import {
   calculateMealNutrients,
   computeDistributionByRda,
   saveDistribution,
 } from '../services/mealService.js';
+import { deductFromInventory } from '../services/inventoryService.js';
 
 // =============================================================
 // GET SUGGESTIONS   GET /api/meal/ai-suggestions
-// ?refresh=true  → bypass cache, call Gemini fresh
+// ?refresh=true → bypass cache
 // =============================================================
 export const getAiMealSuggestions = async (req, res) => {
   try {
@@ -38,26 +32,20 @@ export const getAiMealSuggestions = async (req, res) => {
 
   } catch (err) {
     console.error('AI Meal Suggestions Error:', err);
-
     if (
       err.message.includes('No ingredients') ||
       err.message.includes('No students') ||
-      err.message.includes('GEMINI_API_KEY')
+      err.message.includes('ANTHROPIC_API_KEY')
     ) {
       return res.status(400).json({ message: err.message });
     }
-
     return res.status(500).json({ message: 'Failed to generate suggestions. Try again.' });
   }
 };
 
 // =============================================================
 // CONFIRM SUGGESTION   POST /api/meal/ai-suggestions/confirm
-//
-// Body: {
-//   meal_name:   string,
-//   ingredients: [{ ingredient_id, quantity_g }]
-// }
+// Deducts chosen meal's ingredients from inventory on confirm.
 // =============================================================
 export const confirmAiMealSuggestion = async (req, res) => {
   const client = await pool.connect();
@@ -65,7 +53,7 @@ export const confirmAiMealSuggestion = async (req, res) => {
     await client.query('BEGIN');
 
     const { school_id, user_id, role } = req.user;
-    const { meal_name, ingredients } = req.body;
+    const { meal_name, ingredients }   = req.body;
 
     if (!Array.isArray(ingredients) || ingredients.length === 0) {
       await client.query('ROLLBACK');
@@ -80,7 +68,7 @@ export const confirmAiMealSuggestion = async (req, res) => {
     if (existing.rows.length > 0) {
       await client.query('ROLLBACK');
       return res.status(409).json({
-        message: 'A meal already exists for today. Delete it first or edit it directly.',
+        message: 'A meal already exists for today. Delete it first.',
         existing_meal_id: existing.rows[0].id,
       });
     }
@@ -90,27 +78,23 @@ export const confirmAiMealSuggestion = async (req, res) => {
 
     const mealRes = await client.query(
       `INSERT INTO meals (school_id, name, served_date, created_by)
-       VALUES ($1, $2, CURRENT_DATE, $3)
-       RETURNING *`,
+       VALUES ($1, $2, CURRENT_DATE, $3) RETURNING *`,
       [school_id, name, created_by]
     );
     const meal = mealRes.rows[0];
 
     const inserted = [];
+
     for (const item of ingredients) {
       const { ingredient_id, quantity_g } = item;
 
       if (!ingredient_id || !quantity_g || quantity_g <= 0) {
         await client.query('ROLLBACK');
-        return res.status(400).json({
-          message: 'Each ingredient needs ingredient_id and quantity_g > 0',
-        });
+        return res.status(400).json({ message: 'Each ingredient needs ingredient_id and quantity_g > 0' });
       }
       if (quantity_g > 50000) {
         await client.query('ROLLBACK');
-        return res.status(400).json({
-          message: `quantity_g ${quantity_g} exceeds max (50,000g)`,
-        });
+        return res.status(400).json({ message: `quantity_g ${quantity_g} exceeds max (50,000g)` });
       }
 
       const ingCheck = await client.query(
@@ -120,6 +104,9 @@ export const confirmAiMealSuggestion = async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(404).json({ message: `Ingredient ${ingredient_id} not found` });
       }
+
+      // Deduct from inventory inside the same transaction
+      await deductFromInventory(client, school_id, ingredient_id, quantity_g);
 
       const row = await client.query(
         `INSERT INTO meal_ingredients (meal_id, ingredient_id, quantity_g)
@@ -146,13 +133,16 @@ export const confirmAiMealSuggestion = async (req, res) => {
     }
 
     return res.status(201).json({
-      message: `Meal "${name}" created with ${inserted.length} ingredient(s). Ready to serve!`,
+      message: `Meal "${name}" created with ${inserted.length} ingredient(s). Inventory updated.`,
       meal,
       ingredients_added: inserted.length,
     });
 
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err.message.includes('Insufficient stock') || err.message.includes('not in your inventory')) {
+      return res.status(400).json({ message: err.message });
+    }
     if (err.code === '23505') {
       return res.status(409).json({ message: 'A meal already exists for today.' });
     }
