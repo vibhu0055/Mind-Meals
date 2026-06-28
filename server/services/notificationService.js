@@ -26,6 +26,10 @@ const getMailer = async () => {
   try {
     const nodemailer = (await import("nodemailer")).default;
 
+    const dns = await import("node:dns/promises");
+
+    console.log(await dns.lookup(process.env.SMTP_HOST, { all: true }));
+
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT || 587),
