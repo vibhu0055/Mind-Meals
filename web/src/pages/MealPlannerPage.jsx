@@ -159,7 +159,7 @@ function NutrientBreakdown({ nutrientStats, reports }) {
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: n.color, background: `${n.color}18` }}>
-                    avg {n.avgPct ?? '—'}%
+                    avg {n.students.length ? Math.round(n.students.reduce((a, s) => a + s.avgPct, 0) / n.students.length) : '—'}%
                   </span>
                   {isOpen ? <ChevronUp size={12} className="text-[var(--text-muted)]" /> : <ChevronDown size={12} className="text-[var(--text-muted)]" />}
                 </div>
@@ -1023,7 +1023,6 @@ export default function MealPlannerPage() {
 
             {/* Right column */}
             <div className="w-80 flex-shrink-0">
-              <NutrientBreakdown nutrientStats={nutrientStats} reports={reports} />
             </div>
           </div>
         )
